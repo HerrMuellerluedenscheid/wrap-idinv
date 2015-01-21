@@ -1,7 +1,7 @@
 INVERSION_DIR    none
-GFDB_STEP1       /scratch/local1/marius/doctar_inversion/gfdb/doctar_mainland/
-GFDB_STEP2       /scratch/local1/marius/doctar_inversion/gfdb/doctar_mainland/
-GFDB_STEP3       /scratch/local1/marius/doctar_inversion/gfdb/doctar_mainland/
+GFDB_STEP1       /data/share/vogtland01_fullcover/db
+GFDB_STEP2       /data/share/vogtland01_fullcover/db
+GFDB_STEP3       /data/share/vogtland01_fullcover/db
 GF_INTERPOLATION bilinear
 DATA_DIR         /scratch/local1/simone/KINHERD/DATA/JAPANF
 DATA_FILE        9726900
