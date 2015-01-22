@@ -25,7 +25,13 @@ class Reader:
         data_paths = glob.glob(self._data_path)
 
         self.pile = pile.make_pile(data_paths)
-                
+        self.clear_events()
+
+    def clear_events(self):
+        """remove all events which are out of the piles scope"""
+        self.events = filter(lambda e: e.time>self.pile.tmin and
+                             e.time<self.pile.tmax, self.events)
+
     def iter_events_and_markers(self):
         for e in self.iter_events():
             phases = filter
@@ -53,21 +59,24 @@ class Reader:
 
     def get_waveforms(self, event, timespan=10.):
         '''request waveforms and equilibrate sampling rates if needed'''
-        traces = list(self.pile.chop(event.time, event.time+timespan))
+        traces = []
+        for traces_segment in self.pile.chopper(event.time, event.time+timespan):
+            traces.extend(traces_segment)
         self.adjust_sampling_rates(traces)
+        return traces
 
     def adjust_sampling_rates(self, traces):
         '''Downsample traces to gfdb sampling rate. Raise an exception when
         sampling rate of traces smaller than sampling rate of GFDB'''
-        for tr_segment in traces:
-            for tr in tr_segment:
-                if tr.deltat-self._gfdb_info['dt']>tr.deltat*0.1:
-                    _logger.debug('downsampling trace %s to dt=%s'%(tr,
-                                                                    self._gfdb_info['dt']))
-                    tr.downsample_to(self._gfdb_info['dt'])
-                
-                if self._gfdb_info['dt']-tr.deltat<tr.deltat*0.1:
-                    raise Exception('dt of trace %s bigger than dt of GFDB'%(tr.self._gfdb_info['dt']))
+        for tr in traces:
+            if tr.deltat-self._gfdb_info['dt']>tr.deltat*0.1:
+                _logger.debug('downsampling trace %s to dt=%s'%(tr,
+                                                self._gfdb_info['dt']))
+                tr.downsample_to(self._gfdb_info['dt'])
+            
+            if self._gfdb_info['dt']-tr.deltat<tr.deltat*0.1:
+                raise Exception('dt of trace %s bigger than dt of GFDB'%\
+                                (tr.self._gfdb_info['dt']))
 
     def load_gfdb_info(self, config, GFDB_id='GFDB_STEP1'):
         p = subprocess.Popen(["gfdb_info", config[GFDB_id]],

@@ -23,9 +23,15 @@ class StationConfigurator():
         self.stations = model.load_stations(fn_stations)
 
     def make_rapidinv_stations_file(self, traces):
-        stats = [stat for tr in traces for stat in self.stations if
-                 util.match_nslc(stat.nsc_string(), tr.nslc )]
-
+        stats = set([stat for tr in traces for stat in self.stations if
+                 util.match_nslc('%s.%s.%s.*'%stat.nsl(), tr.nslc_id )])
+        
+        file_str = ''
+        for i,s in enumerate(stats):
+            file_str +='%s   '%(i+1)
+            file_str +='%s.%s.%s   '%s.nsl()
+            file_str +='%s   %s\n'%(s.lat, s.lon)
+        return file_str
 
 class RapidinvConfig():
     def __init__(self,
@@ -64,6 +70,9 @@ class RapidinvConfig():
         dz = 0.
         return z1, z2, dz 
 
+    def make_rapidinv_stations_file(self, traces):
+        return self.stations.make_rapidinv_stations_file(traces)
+
     def __setitem__(self, key, value):
         """Following substitutions are made:
         inversion_dir will be prepended by base_path
@@ -87,6 +96,12 @@ class RapidinvConfig():
     def copy(self):
         return copy.deepcopy(self)
 
+    def make_rapidinv_input(self):
+        string = ''
+        for k,v in self.parameters.items():
+            string+='%s   %s\n'%(k, v)
+        return string
+
 class MultiEventInversion():
     def __init__(self, config, reader):
         self.config = config
@@ -94,7 +109,7 @@ class MultiEventInversion():
         self.reader.load_gfdb_info(config)
         self.inversions = []
 
-    def prepare(self, force=False):
+    def prepare(self, force=False, num_inversions=99999999):
         _logger.debug('preparing, force=%s'%force)
         for i, e in enumerate(self.reader.iter_events()):
             local_config = self.config.copy()
@@ -110,12 +125,18 @@ class MultiEventInversion():
             #        local_config['_'.join(component, sub_component)] = dc_settings.next()
 
             local_config['DIP'], local_config['DEPTH_2'], local_config['DEPTH_STEP'] = self.config.get_depths(e)
-            inversion = Inversion(inversion_id=i, 
-                                  config=local_config,
+            inversion = Inversion(config=local_config,
+                                  inversion_id=i, 
                                   force=force)
 
-            inversion.prepare(self.reader, e)
-            self.inversions.append(inversion)
+            ready = inversion.prepare(self.reader, e)
+            if ready:
+                i += 1
+                if i>=num_inversions:
+                    break
+                self.inversions.append(inversion)
+            else:
+                continue
 
     def run_all(self):
         for i in self.inversions:
@@ -129,19 +150,26 @@ class MultiEventInversion():
 
 
 class Inversion():
-    def __init__(self, inversion_id, config, force=False):
+    def __init__(self, config, inversion_id=None, force=False):
         self.config = config
         self.force = force
+        self.inversion_id = inversion_id
         
     def prepare(self, reader, event):
-        self.make_directories()
-        self.make_data(reader, event)
-        self.make_station_file()
+        status = self.make_data(reader, event)
+        if status==True:
+            self.make_directories()
+            self.write_data()
+            self.make_station_file()
+            self.make_rapidinv_file()
+            return True
+        else:
+            return False
 
     def make_directories(self):
-        base_path = self.config['INVERSION_DIR'].rsplit('/', 1)[0] 
-        _logger.info('creating output directory: %s'%base_path)
-        make_sane_directories(base_path, self.force)
+        self.base_path = self.config['INVERSION_DIR'].rsplit('/', 1)[0] 
+        _logger.info('creating output directory: %s'%self.base_path)
+        make_sane_directories(self.base_path, self.force)
         make_sane_directories(self.config['INVERSION_DIR'], self.force)
         make_sane_directories(self.config['DATA_DIR'], self.force)
     
@@ -150,11 +178,30 @@ class Inversion():
 
     def make_data(self, reader, event):
         self.traces = reader.get_waveforms(event, timespan=20.)
-        for tr in self.traces:
-            io.save(tr, pjoin(self.config['DATA_DIR'],
-                              '%network.%station.%location.%channel.mseed'))
+        if self.traces==None:
+            _logger.debug('No Data found %s'%event)
+            return False
+        else:
+            _logger.info('Data found %s'%event)
+            return True
 
     def make_station_file(self):
-        # TODO: Check that this method works, tomorrow first
-        self.config.make_rapidinv_stations_file(self.traces)
-        self.config['STAT_INP_FILE']
+        stats = self.config.make_rapidinv_stations_file(self.traces)
+        fn = pjoin(self.base_path, 'data', 'stations.txt')
+        self.config['STAT_INP_FILE'] = fn
+        with open(fn, 'w') as f:
+            f.write(stats)
+
+        _logger.debug('ID %s -  station file: %s'%(self.inversion_id, fn))
+
+    def write_data(self):
+        for tr in self.traces:
+            fn = '%s.%s.%s.%s.mseed'%tr.nslc_id
+            fn = fn.strip('.')
+            fn = pjoin(self.config['DATA_DIR'], fn)
+            io.save(tr, fn)
+    
+    def make_rapidinv_file(self):
+        fn = pjoin(self.base_path, 'rapid.inp')
+        with open(fn, 'w') as f:
+            f.write(self.config.make_rapidinv_input())
