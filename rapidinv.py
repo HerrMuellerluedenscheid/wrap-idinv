@@ -5565,77 +5565,80 @@ class Discretesource:
 #      MAIN CODE      #
 
 #######################
+def run_rapidinv(finput):
+    # Initializing
+    time0,year0=getTime()
+    print 'Initializing'
+    inv_param,active_comp,active_chan,comp_names={},{},{},{}
+    traces = []
+    point_solutions_1,best_point_solutions_1=[],[]
+    point_solutions_2,best_point_solutions_2=[],[]
+    mt_solutions_1,best_mt_solutions_1=[],[]
+    mt_solutions_2,best_mt_solutions_2=[],[]
+    start_eikonals,eikonal_solutions_3,best_eikonal_solutions_3=[],[],[]
 
-# Initializing
-time0,year0=getTime()
-print 'Initializing'
-inv_param,active_comp,active_chan,comp_names={},{},{},{}
-traces = []
-point_solutions_1,best_point_solutions_1=[],[]
-point_solutions_2,best_point_solutions_2=[],[]
-mt_solutions_1,best_mt_solutions_1=[],[]
-mt_solutions_2,best_mt_solutions_2=[],[]
-start_eikonals,eikonal_solutions_3,best_eikonal_solutions_3=[],[],[]
+    # Read input file, check and prepare inversion parameters
+    print 'Read input file, check and prepare inversion parameters'
+    fdefaults,facceptables = 'rapidinv.defaults','rapidinv.acceptables'
+    if ( not finput ):
+       print "Correct usage: python rapidinv.py <input_filename>"
+       sys.exit("ERROR: Wrong input file name")
+    processInvParam(finput,fdefaults,facceptables,inv_param,active_comp,active_chan,comp_names)
 
-# Read input file, check and prepare inversion parameters
-print 'Read input file, check and prepare inversion parameters'
-finput,fdefaults,facceptables = sys.argv[1],'rapidinv.defaults','rapidinv.acceptables'
-if ( not finput ):
-   print "Correct usage: python rapidinv.py <input_filename>"
-   sys.exit("ERROR: Wrong input file name")
-processInvParam(finput,fdefaults,facceptables,inv_param,active_comp,active_chan,comp_names)
+    # Prepare inversion directory, choose stations, prepare data
+    print 'Prepare inversion directory, choose stations, prepare data'
+    inv_step='1'
+    apply_taper=checkTaper(inv_param,inv_step)
+    prepInvDir(inv_param)
+    assignSpacing(inv_param)
+    prepStations(inv_param,traces)
+    prepData(inv_step,inv_param,traces,apply_taper)
 
-# Prepare inversion directory, choose stations, prepare data
-print 'Prepare inversion directory, choose stations, prepare data'
-inv_step='1'
-apply_taper=checkTaper(inv_param,inv_step)
-prepInvDir(inv_param)
-assignSpacing(inv_param)
-prepStations(inv_param,traces)
-prepData(inv_step,inv_param,traces,apply_taper)
+    # Point source inversion (freq domain) - step 1
+    time1,year1=getTime()
+    if (int(float(inv_param['NUM_INV_STEPS']))>=1) and (int(float(inv_param['NUM_INV_STEPS']))<=3):
+       inv_step='1'
+       apply_taper=checkTaper(inv_param,inv_step)
+       print 'Double couple source inversion (freq domain) - step 1'
+       inversionDCsource(inv_step,inv_param,point_solutions_1,best_point_solutions_1,traces,apply_taper)
+       print 'Point source inversion (freq domain) - plotting'
+       plotDCSolution(inv_step,inv_param,point_solutions_1,best_point_solutions_1,traces)
+    #   print 'Moment tensor inversion (freq domain) - step 1b'
+    #   mt_solutions_1.append(point2mt(best_point_solutions_1[0],inv_param,inv_step))
+    #   inversionMTsource(inv_step,inv_param,mt_solutions_1,best_mt_solutions_1,traces,apply_taper)
 
-# Point source inversion (freq domain) - step 1
-time1,year1=getTime()
-if (int(float(inv_param['NUM_INV_STEPS']))>=1) and (int(float(inv_param['NUM_INV_STEPS']))<=3):
-   inv_step='1'
-   apply_taper=checkTaper(inv_param,inv_step)
-   print 'Double couple source inversion (freq domain) - step 1'
-   inversionDCsource(inv_step,inv_param,point_solutions_1,best_point_solutions_1,traces,apply_taper)
-   print 'Point source inversion (freq domain) - plotting'
-   plotDCSolution(inv_step,inv_param,point_solutions_1,best_point_solutions_1,traces)
-#   print 'Moment tensor inversion (freq domain) - step 1b'
-#   mt_solutions_1.append(point2mt(best_point_solutions_1[0],inv_param,inv_step))
-#   inversionMTsource(inv_step,inv_param,mt_solutions_1,best_mt_solutions_1,traces,apply_taper)
+    # Point source inversion (time domain) - step 2
+    time2,year2=getTime()
+    if (int(float(inv_param['NUM_INV_STEPS']))>=2) and (int(float(inv_param['NUM_INV_STEPS']))<=3):
+       inv_step='2'
+       print 'Double couple source inversion (time domain) - step 2'
+       point_solutions_2.append(best_point_solutions_1[0])
+       point_solutions_2.append(best_point_solutions_1[1])
+       inversionDCsource(inv_step,inv_param,point_solutions_2,best_point_solutions_2,traces,apply_taper) 
+       print 'Point source inversion (time domain) - plotting'
+       plotDCSolution(inv_step,inv_param,point_solutions_2,best_point_solutions_2,traces)
+    #   print 'Moment tensor source inversion (time domain) - step 2b'
+    #   mt_solutions_2.append(best_mt_solutions_1[0])
+    #   mt_solutions_2.append(best_mt_solutions_1[1])
+    #   inversionMTsource(inv_step,inv_param,mt_solutions_2,best_mt_solutions_2,traces,apply_taper) 
 
-# Point source inversion (time domain) - step 2
-time2,year2=getTime()
-if (int(float(inv_param['NUM_INV_STEPS']))>=2) and (int(float(inv_param['NUM_INV_STEPS']))<=3):
-   inv_step='2'
-   print 'Double couple source inversion (time domain) - step 2'
-   point_solutions_2.append(best_point_solutions_1[0])
-   point_solutions_2.append(best_point_solutions_1[1])
-   inversionDCsource(inv_step,inv_param,point_solutions_2,best_point_solutions_2,traces,apply_taper) 
-   print 'Point source inversion (time domain) - plotting'
-   plotDCSolution(inv_step,inv_param,point_solutions_2,best_point_solutions_2,traces)
-#   print 'Moment tensor source inversion (time domain) - step 2b'
-#   mt_solutions_2.append(best_mt_solutions_1[0])
-#   mt_solutions_2.append(best_mt_solutions_1[1])
-#   inversionMTsource(inv_step,inv_param,mt_solutions_2,best_mt_solutions_2,traces,apply_taper) 
+    # Eikonal source inversion (time domain) - step 3
+    time3,year3=getTime()
+    if int(float(inv_param['NUM_INV_STEPS']))==3:
+       inv_step='3'
+       print 'Eikonal source inversion (time domain) - step 3'
+       eikonal_solutions_3.append(point2eikonal(best_point_solutions_2[0],inv_param,inv_step))
+       eikonal_solutions_3.append(point2eikonal(best_point_solutions_2[1],inv_param,inv_step))
+       inversionEIKsource(inv_step,inv_param,start_eikonals,eikonal_solutions_3,best_eikonal_solutions_3,traces,\
+                          apply_taper,best_point_solutions_2)
+       print 'Eikonal source inversion (time domain) - plotting'
+       plotEikSolution(inv_step,inv_param,eikonal_solutions_3,best_eikonal_solutions_3,traces)
 
-# Eikonal source inversion (time domain) - step 3
-time3,year3=getTime()
-if int(float(inv_param['NUM_INV_STEPS']))==3:
-   inv_step='3'
-   print 'Eikonal source inversion (time domain) - step 3'
-   eikonal_solutions_3.append(point2eikonal(best_point_solutions_2[0],inv_param,inv_step))
-   eikonal_solutions_3.append(point2eikonal(best_point_solutions_2[1],inv_param,inv_step))
-   inversionEIKsource(inv_step,inv_param,start_eikonals,eikonal_solutions_3,best_eikonal_solutions_3,traces,\
-                      apply_taper,best_point_solutions_2)
-   print 'Eikonal source inversion (time domain) - plotting'
-   plotEikSolution(inv_step,inv_param,eikonal_solutions_3,best_eikonal_solutions_3,traces)
+    # Clean inversion directory
+    # removeLocalDataFiles(inv_param,traces)
+    time4,year4=getTime()
+    plotDelay(time0,year0,time1,year1,time2,year2,time3,year3,time4,year4)
+    print "Ho finito!" 
 
-# Clean inversion directory
-# removeLocalDataFiles(inv_param,traces)
-time4,year4=getTime()
-plotDelay(time0,year0,time1,year1,time2,year2,time3,year3,time4,year4)
-print "Ho finito!" 
+if '__name__'=='__main__':
+    run_rapidinv(sys.argv[1])
