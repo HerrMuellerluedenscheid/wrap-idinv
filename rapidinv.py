@@ -1325,6 +1325,8 @@ def defineGridWalkDCsource(inv_step,start_point_solutions,point_solutions,inv_pa
 	 start_point_solutions.append(DCsource(inv_step,stmis,stnor,stest,sttim,stdep,'90','90','90',stmom,stmsh,strise))
 	 start_point_solutions.append(DCsource(inv_step,stmis,stnor,stest,sttim,stdep,'135','90','90',stmom,stmsh,strise))
       else:
+         if dep1==dep2 and depstep==0:
+             depstep = 1
          for depth in range(dep1,dep2+1,depstep):   
             mom=mom1
             while (mom<=mom2):
