@@ -57,10 +57,16 @@ class Reader:
 
         _logger.info('unassigned/assigned: %s/%s '%(i_unassigned, i_assigned))
 
-    def get_waveforms(self, event, timespan=10.):
-        '''request waveforms and equilibrate sampling rates if needed'''
+    def get_waveforms(self, event, timespan=10., reset_time=False):
+        '''request waveforms and equilibrate sampling rates if needed
+        
+        :param reset_time: if True subtract event time'''
         traces = []
         for traces_segment in self.pile.chopper(event.time, event.time+timespan):
+            if reset_time:
+                for tr in traces_segment:
+                    tr.shift(-event.time)
+            
             traces.extend(traces_segment)
         self.adjust_sampling_rates(traces)
         return traces
@@ -69,17 +75,16 @@ class Reader:
         '''Downsample traces to gfdb sampling rate. Raise an exception when
         sampling rate of traces smaller than sampling rate of GFDB'''
         for tr in traces:
-            if tr.deltat-self._gfdb_info['dt']>tr.deltat*0.1:
+            if self._gfdb_info['dt']-tr.deltat>tr.deltat*0.1:
                 _logger.debug('downsampling trace %s to dt=%s'%(tr,
                                                 self._gfdb_info['dt']))
                 tr.downsample_to(self._gfdb_info['dt'])
             
-            if self._gfdb_info['dt']-tr.deltat<tr.deltat*0.1:
-                raise Exception('dt of trace %s bigger than dt of GFDB'%\
-                                (tr.self._gfdb_info['dt']))
+            elif self._gfdb_info['dt']-tr.deltat<tr.deltat*0.1:
+                raise Exception('dt of trace %s bigger than dt of GFDB'%tr)
 
     def load_gfdb_info(self, config, GFDB_id='GFDB_STEP1'):
-        p = subprocess.Popen(["gfdb_info", config[GFDB_id]],
+        p = subprocess.Popen(["gfdb_info", pjoin(config[GFDB_id], 'db')],
                              stdout=subprocess.PIPE)
         out,err = p.communicate()
         if err==None and out=='':
@@ -91,4 +96,7 @@ class Reader:
                     continue
                 k,v = info_field.split('=')
                 self._gfdb_info[k] = float(v)
-
+    
+    def out_of_bounds(self, event, station):
+        #  AM BESTEN NE CLASS KIWI_GFDB machen
+        return 
