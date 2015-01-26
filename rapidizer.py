@@ -7,6 +7,7 @@ from pyrocko.util import time_to_str
 from pyrocko import io
 from pyrocko import model
 from pyrocko import util
+from rapidinv import run_rapidinv
 
 _logger = logging.getLogger('rapidinv')
 mkdir = os.mkdir
@@ -22,14 +23,15 @@ class StationConfigurator():
         self.fn_stations = fn_stations
         self.stations = model.load_stations(fn_stations)
 
-    def make_rapidinv_stations_file(self, traces):
+    def make_rapidinv_stations_file(self, traces, reader):
         stats = set([stat for tr in traces for stat in self.stations if
                  util.match_nslc('%s.%s.%s.*'%stat.nsl(), tr.nslc_id )])
         
         file_str = ''
         for i,s in enumerate(stats):
-            file_str +='%s   '%(i+1)
-            file_str +='%s.%s.%s   '%s.nsl()
+            if not reader.out_of_bounds(s):
+                file_str +='%s   '%(i+1)
+            file_str +='%s   '%s.station
             file_str +='%s   %s\n'%(s.lat, s.lon)
         return file_str
 
@@ -38,6 +40,7 @@ class RapidinvConfig():
                  base_path,
                  fn_stations,
                  fn_defaults='rapidinv.defaults',
+                 reset_time=False,
                  **kwargs):
         
         #self.engine = kwargs['engine']
@@ -46,6 +49,7 @@ class RapidinvConfig():
         self.stations = StationConfigurator(fn_stations)
         self.fn_defaults = fn_defaults
         self.parameters = self.load_defaults()
+        self.reset_time = reset_time
         self.parameters.update(**kwargs)
 
     def load_defaults(self):
@@ -65,13 +69,13 @@ class RapidinvConfig():
 
     def get_depths(self, event):
         """Should be a function defined by the user"""
+        dz = 0.
         z1 = event.depth
         z2 = event.depth
-        dz = 0.
         return z1, z2, dz 
 
-    def make_rapidinv_stations_file(self, traces):
-        return self.stations.make_rapidinv_stations_file(traces)
+    def make_rapidinv_stations_file(self, *args, **kwargs):
+        return self.stations.make_rapidinv_stations_file(*args, **kwargs)
 
     def __setitem__(self, key, value):
         """Following substitutions are made:
@@ -114,10 +118,14 @@ class MultiEventInversion():
         for i, e in enumerate(self.reader.iter_events()):
             local_config = self.config.copy()
             local_config['INVERSION_DIR'] = pjoin(self.out_path(e), 'out')
-            local_config['DATA_DIR'] = pjoin(self.out_path(e), 'data')
+            local_config['DATA_DIR'] = pjoin(self.out_path(e),  'data')
             local_config['LATITUDE_NORTH'] = e.lat
             local_config['LONGITUDE_EAST'] = e.lon
             local_config['DEPTH_1'], local_config['DEPTH_2'], local_config['DEPTH_STEP'] = self.config.get_depths(e)
+            # Is the ORIG_TIME in seconds after 01011970? Doesnt seem to be
+            # working
+            #local_config['ORIG_TIME'] = e.time
+            
             # postponed....
             #dc_settings = self.config.get_dc_settings(e)
             #for component in ['STRIKE', 'DIP', 'RAKE']:
@@ -154,13 +162,14 @@ class Inversion():
         self.config = config
         self.force = force
         self.inversion_id = inversion_id
+        self.out_of_bounds = []
         
     def prepare(self, reader, event):
         status = self.make_data(reader, event)
         if status==True:
             self.make_directories()
-            self.write_data()
-            self.make_station_file()
+            self.make_station_file(reader)
+            self.write_data(reader)
             self.make_rapidinv_file()
             return True
         else:
@@ -175,18 +184,21 @@ class Inversion():
     
     def run(self):
         _logger.info('starting inversion %s'%self.inversion_id)
+        fn = pjoin(self.base_path, 'rapid.inp')
+        run_rapidinv(fn)
 
     def make_data(self, reader, event):
-        self.traces = reader.get_waveforms(event, timespan=20.)
+        self.traces = reader.get_waveforms(event, timespan=20.,
+                                           reset_time=self.config.reset_time)
         if self.traces==None:
             _logger.debug('No Data found %s'%event)
             return False
         else:
-            _logger.info('Data found %s'%event)
+            _logger.info('Found Data %s'%event.time_as_string())
             return True
 
-    def make_station_file(self):
-        stats = self.config.make_rapidinv_stations_file(self.traces)
+    def make_station_file(self, reader):
+        stats = self.config.make_rapidinv_stations_file(self.traces, reader)
         fn = pjoin(self.base_path, 'data', 'stations.txt')
         self.config['STAT_INP_FILE'] = fn
         with open(fn, 'w') as f:
@@ -194,10 +206,14 @@ class Inversion():
 
         _logger.debug('ID %s -  station file: %s'%(self.inversion_id, fn))
 
-    def write_data(self):
+    def out_of_bounds(self, tr):
+        return tr.nslc_id in self.out_of_bounds
+
+    def write_data(self, reader):
         for tr in self.traces:
-            fn = '%s.%s.%s.%s.mseed'%tr.nslc_id
-            fn = fn.strip('.')
+            fn = 'DISPL.%s.%s'%(tr.station, tr.channel)
+            if self.out_of_bounds(tr):
+                fn = 'OOB.' + fn
             fn = pjoin(self.config['DATA_DIR'], fn)
             io.save(tr, fn)
     
