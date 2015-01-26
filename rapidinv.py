@@ -53,7 +53,14 @@ from tunguska.phase import Phase,Timing
 
 
 def readDefInputFile(fdefaults,inv_param):
-   f=open(fdefaults,'r')
+   try:
+        f=open(fdefaults,'r')
+   except IOError as err:
+       try:
+            f=open(os.environ["RAPIDINV"]+fdefaults,'r')
+       except KeyError:
+            raise err
+
    for line in f:
       splittedline=line.split()
       if len(splittedline)==2:
@@ -121,7 +128,13 @@ def checkInvParam (param,param_value,possible_values):
 
 
 def checkAccInputFile(facceptables,inv_param):
-   f = open(facceptables,'r')   
+   try:
+        f=open(facceptables,'r')
+   except IOError as err:
+       try:
+            f=open(os.environ["RAPIDINV"]+facceptables,'r')
+       except KeyError:
+            raise err
    for line in f:
       cv=line.split()
       if len(cv) == 2:
