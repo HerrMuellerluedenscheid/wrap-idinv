@@ -1,4 +1,4 @@
-#!/usr/local/bin/python
+#!/usr/bin/env python
 #
 #     RAPIDINV.PY
 #
@@ -724,7 +724,7 @@ def prepStations(inv_param,traces):
 	 istatok=istatok+1
          trace_comp=""
          for comp in inv_param['COMP_2_USE']:
-	    trace_name="DISPL."+stat+"."+active_chan[comp]
+            trace_name="DISPL."+stat+"."+active_chan[comp]
             ftrace=os.path.join(inv_param['INVERSION_DIR'],trace_name)
             if os.path.isfile(ftrace):
                trace_comp=trace_comp + comp
@@ -5565,19 +5565,19 @@ class Discretesource:
 #######################
 
 #      MAIN CODE      #
+inv_param,active_comp,active_chan,comp_names={},{},{},{}
+traces = []
+point_solutions_1,best_point_solutions_1=[],[]
+point_solutions_2,best_point_solutions_2=[],[]
+mt_solutions_1,best_mt_solutions_1=[],[]
+mt_solutions_2,best_mt_solutions_2=[],[]
+start_eikonals,eikonal_solutions_3,best_eikonal_solutions_3=[],[],[]
 
 #######################
 def run_rapidinv(finput):
     # Initializing
     time0,year0=getTime()
     print 'Initializing'
-    inv_param,active_comp,active_chan,comp_names={},{},{},{}
-    traces = []
-    point_solutions_1,best_point_solutions_1=[],[]
-    point_solutions_2,best_point_solutions_2=[],[]
-    mt_solutions_1,best_mt_solutions_1=[],[]
-    mt_solutions_2,best_mt_solutions_2=[],[]
-    start_eikonals,eikonal_solutions_3,best_eikonal_solutions_3=[],[],[]
 
     # Read input file, check and prepare inversion parameters
     print 'Read input file, check and prepare inversion parameters'
@@ -5642,5 +5642,8 @@ def run_rapidinv(finput):
     plotDelay(time0,year0,time1,year1,time2,year2,time3,year3,time4,year4)
     print "Ho finito!" 
 
-if '__name__'=='__main__':
+if __name__=='__main__':
+    if len(sys.argv)!=2:
+        print "USAGE: python rapidinv <input script>"
+        sys.exit(0)
     run_rapidinv(sys.argv[1])
