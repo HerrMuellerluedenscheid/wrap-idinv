@@ -10,13 +10,14 @@ import logging
 #needs to be changed for every run
 _logger = logging.getLogger('rapidinv')
 
+
 class Reader:
     def __init__(self, basepath, data, events, phases):
         self._base_path=basepath
         self._meta_events = pjoin(self._base_path, events)
         self._meta_phases = pjoin(self._base_path, phases)
         self._data_path = pjoin(self._base_path, data)
-        self._gfdb_info = {}
+        self._gfdb_info = None
 
     def start(self):
         self.events = model.load_events(self._meta_events)
@@ -83,20 +84,3 @@ class Reader:
             elif self._gfdb_info['dt']-tr.deltat<tr.deltat*0.1:
                 raise Exception('dt of trace %s bigger than dt of GFDB'%tr)
 
-    def load_gfdb_info(self, config, GFDB_id='GFDB_STEP1'):
-        p = subprocess.Popen(["gfdb_info", pjoin(config[GFDB_id], 'db')],
-                             stdout=subprocess.PIPE)
-        out,err = p.communicate()
-        if err==None and out=='':
-            raise Exception('Could not find GFDB %s'%config["GFDB_STEP1"])
-    
-        else:
-            for info_field in out.split('\n'):
-                if info_field=='':
-                    continue
-                k,v = info_field.split('=')
-                self._gfdb_info[k] = float(v)
-    
-    def out_of_bounds(self, event, station):
-        #  AM BESTEN NE CLASS KIWI_GFDB machen
-        return 
