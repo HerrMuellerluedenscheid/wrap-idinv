@@ -57,7 +57,7 @@ def readDefInputFile(fdefaults,inv_param):
         f=open(fdefaults,'r')
    except IOError as err:
        try:
-            f=open(os.environ["RAPIDINV"]+fdefaults,'r')
+            f=open(os.environ["RAPIDINV"]+'/'+fdefaults,'r')
        except KeyError:
             raise err
 
@@ -132,7 +132,7 @@ def checkAccInputFile(facceptables,inv_param):
         f=open(facceptables,'r')
    except IOError as err:
        try:
-            f=open(os.environ["RAPIDINV"]+facceptables,'r')
+            f=open(os.environ["RAPIDINV"]+'/'+facceptables,'r')
        except KeyError:
             raise err
    for line in f:
