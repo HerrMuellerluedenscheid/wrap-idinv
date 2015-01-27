@@ -9,6 +9,8 @@ from pyrocko import model
 from pyrocko import util
 from rapidinv import run_rapidinv
 
+from gfdb import GFDB
+
 _logger = logging.getLogger('rapidinv')
 mkdir = os.mkdir
 
@@ -23,13 +25,13 @@ class StationConfigurator():
         self.fn_stations = fn_stations
         self.stations = model.load_stations(fn_stations)
 
-    def make_rapidinv_stations_file(self, traces, reader):
+    def make_rapidinv_stations_file(self, traces, event, gfdb):
         stats = set([stat for tr in traces for stat in self.stations if
                  util.match_nslc('%s.%s.%s.*'%stat.nsl(), tr.nslc_id )])
         
         file_str = ''
         for i,s in enumerate(stats):
-            if not reader.out_of_bounds(s):
+            if not gfdb.out_of_bounds(event, s):
                 file_str +='%s   '%(i+1)
             file_str +='%s   '%s.station
             file_str +='%s   %s\n'%(s.lat, s.lon)
@@ -110,7 +112,7 @@ class MultiEventInversion():
     def __init__(self, config, reader):
         self.config = config
         self.reader = reader
-        self.reader.load_gfdb_info(config)
+        self.gfdb = GFDB.from_config(config)
         self.inversions = []
 
     def prepare(self, force=False, num_inversions=99999999):
@@ -133,7 +135,8 @@ class MultiEventInversion():
             #        local_config['_'.join(component, sub_component)] = dc_settings.next()
 
             local_config['DIP'], local_config['DEPTH_2'], local_config['DEPTH_STEP'] = self.config.get_depths(e)
-            inversion = Inversion(config=local_config,
+            inversion = Inversion(parent=self, 
+                                  config=local_config,
                                   inversion_id=i, 
                                   force=force)
 
@@ -158,17 +161,21 @@ class MultiEventInversion():
 
 
 class Inversion():
-    def __init__(self, config, inversion_id=None, force=False):
+    def __init__(self, parent, config, inversion_id=None, force=False):
+        self.parent = parent
         self.config = config
         self.force = force
         self.inversion_id = inversion_id
         self.out_of_bounds = []
-        
+    
+        self.event = None
+    
     def prepare(self, reader, event):
-        status = self.make_data(reader, event)
+        self.event = event
+        status = self.make_data(reader)
         if status==True:
             self.make_directories()
-            self.make_station_file(reader)
+            self.make_station_file()
             self.write_data(reader)
             self.make_rapidinv_file()
             return True
@@ -187,18 +194,21 @@ class Inversion():
         fn = pjoin(self.base_path, 'rapid.inp')
         run_rapidinv(fn)
 
-    def make_data(self, reader, event):
-        self.traces = reader.get_waveforms(event, timespan=20.,
+    def make_data(self, reader):
+        self.traces = reader.get_waveforms(self.event, timespan=20.,
                                            reset_time=self.config.reset_time)
+        self.parent.gfdb.adjust_sampling_rates(self.traces)
         if self.traces==None:
-            _logger.debug('No Data found %s'%event)
+            _logger.debug('No Data found %s'%self.event)
             return False
         else:
-            _logger.info('Found Data %s'%event.time_as_string())
+            _logger.info('Found Data %s'%self.event.time_as_string())
             return True
 
-    def make_station_file(self, reader):
-        stats = self.config.make_rapidinv_stations_file(self.traces, reader)
+    def make_station_file(self):
+        stats = self.config.make_rapidinv_stations_file(self.traces,
+                                                        self.event, 
+                                                        self.parent.gfdb)
         fn = pjoin(self.base_path, 'data', 'stations.txt')
         self.config['STAT_INP_FILE'] = fn
         with open(fn, 'w') as f:
@@ -212,7 +222,7 @@ class Inversion():
     def write_data(self, reader):
         for tr in self.traces:
             fn = 'DISPL.%s.%s'%(tr.station, tr.channel)
-            if self.out_of_bounds(tr):
+            if (self.event.get_hash, tr.nslc_id[::3]) in self.parent.gfdb._out_of_bounds:
                 fn = 'OOB.' + fn
             fn = pjoin(self.config['DATA_DIR'], fn)
             io.save(tr, fn)

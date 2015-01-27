@@ -17,7 +17,6 @@ class Reader:
         self._meta_events = pjoin(self._base_path, events)
         self._meta_phases = pjoin(self._base_path, phases)
         self._data_path = pjoin(self._base_path, data)
-        self._gfdb_info = None
 
     def start(self):
         self.events = model.load_events(self._meta_events)
@@ -69,18 +68,5 @@ class Reader:
                     tr.shift(-event.time)
             
             traces.extend(traces_segment)
-        self.adjust_sampling_rates(traces)
         return traces
-
-    def adjust_sampling_rates(self, traces):
-        '''Downsample traces to gfdb sampling rate. Raise an exception when
-        sampling rate of traces smaller than sampling rate of GFDB'''
-        for tr in traces:
-            if self._gfdb_info['dt']-tr.deltat>tr.deltat*0.1:
-                _logger.debug('downsampling trace %s to dt=%s'%(tr,
-                                                self._gfdb_info['dt']))
-                tr.downsample_to(self._gfdb_info['dt'])
-            
-            elif self._gfdb_info['dt']-tr.deltat<tr.deltat*0.1:
-                raise Exception('dt of trace %s bigger than dt of GFDB'%tr)
 
