@@ -3482,7 +3482,7 @@ def runBootstrapStep1(inv_step,inv_param,point_solutions,n_point_solutions,minou
          print line
          sys.exit('ERROR: minimizer internal error (minimizer2.out)')
       else:
-         if not re.search('ok',line):
+         if re.search('ok',line):
             lines_localmisfits1.append(line)
             i=i+1
    n_new_point_solutions = i
