@@ -70,10 +70,11 @@ class RapidinvConfig():
         return config_str
 
     def get_depths(self, event):
-        """Should be a function defined by the user"""
+        """Should be a function defined by the user.
+        WATCH OUT: rapidinv accepts depth in km"""
         dz = 0.
-        z1 = event.depth
-        z2 = event.depth
+        z1 = event.depth/1000.
+        z2 = event.depth/1000.
         return z1, z2, dz 
 
     def make_rapidinv_stations_file(self, *args, **kwargs):
@@ -108,6 +109,7 @@ class RapidinvConfig():
             string+='%s   %s\n'%(k, v)
         return string
 
+
 class MultiEventInversion():
     def __init__(self, config, reader):
         self.config = config
@@ -124,6 +126,7 @@ class MultiEventInversion():
             local_config['LATITUDE_NORTH'] = e.lat
             local_config['LONGITUDE_EAST'] = e.lon
             local_config['DEPTH_1'], local_config['DEPTH_2'], local_config['DEPTH_STEP'] = self.config.get_depths(e)
+            self.gfdb.add_mustard(self.config)
             # Is the ORIG_TIME in seconds after 01011970? Doesnt seem to be
             # working
             #local_config['ORIG_TIME'] = e.time

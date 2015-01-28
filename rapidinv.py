@@ -93,6 +93,16 @@ def assignSpacing(inv_param):
    inv_param[cod]=val
    print "radius 0 set to ",val
 
+class ParamChecker():
+    """General purpose parameter checking class. Intended to detect problems
+    before running rapidinv. Needs to be implementd soon"""
+    def __init__(self, inv_param):
+        self.inv_param = inv_param
+        
+    def check_limits(self):
+        """Assert that bottom limit and upper limit are smaller and bigger than
+        extend of GFDB, respectively. Same with horizontal extend."""
+        pass
 
 def readInputFile (filename,inv_param,active_comp):
    f = open(filename,'r')   

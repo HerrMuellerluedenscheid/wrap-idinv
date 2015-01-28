@@ -19,7 +19,7 @@ _logger.info('Start logging')
 if __name__ == '__main__':
     webnet = os.environ['WEBNET']
     r = Reader(webnet,
-               data='mseed/2008/KAC/*',
+               data='mseed/2008/*/*',
                events='catalog/intern/Oct2008_events.pf', 
                phases='catalog/intern/Oct2008_phases.pf')
     r.start()
