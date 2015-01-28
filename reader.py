@@ -7,9 +7,6 @@ import glob
 
 import logging
 
-#needs to be changed for every run
-_logger = logging.getLogger('rapidinv')
-
 
 class Reader:
     def __init__(self, basepath, data, events, phases):
@@ -51,11 +48,11 @@ class Reader:
                 p.set_event(hashs[p.get_event_hash()])
                 i_assigned += 1
             except KeyError:
-                _logger.debug('could not set event for phase %s'%p)
+                logging.debug('could not set event for phase %s'%p)
                 i_unassigned += 1
                 pass
 
-        _logger.info('unassigned/assigned: %s/%s '%(i_unassigned, i_assigned))
+        logging.info('unassigned/assigned: %s/%s '%(i_unassigned, i_assigned))
 
     def get_waveforms(self, event, timespan=10., reset_time=False):
         '''request waveforms and equilibrate sampling rates if needed

@@ -3,15 +3,14 @@ import os
 import shutil
 import logging
 import copy
+from multiprocessing import Process
 from pyrocko.util import time_to_str
 from pyrocko import io
 from pyrocko import model
 from pyrocko import util
 from rapidinv import run_rapidinv
-
 from gfdb import GFDB
 
-_logger = logging.getLogger('rapidinv')
 mkdir = os.mkdir
 
 def make_sane_directories(directory, force):
@@ -118,7 +117,7 @@ class MultiEventInversion():
         self.inversions = []
 
     def prepare(self, force=False, num_inversions=99999999):
-        _logger.debug('preparing, force=%s'%force)
+        logging.debug('preparing, force=%s'%force)
         for i, e in enumerate(self.reader.iter_events()):
             local_config = self.config.copy()
             local_config['INVERSION_DIR'] = pjoin(self.out_path(e), 'out')
@@ -152,9 +151,13 @@ class MultiEventInversion():
             else:
                 continue
 
-    def run_all(self):
+    def run_all(self, ncpus=1):
+
         for i in self.inversions:
-            i.run()
+            i.start()
+            
+        for i in self.inversions:
+            i.join()
 
     def out_path(self, event):
         file_path = '_'.join(event.time_as_string().split())
@@ -163,8 +166,9 @@ class MultiEventInversion():
         return file_path
 
 
-class Inversion():
+class Inversion(Process):
     def __init__(self, parent, config, inversion_id=None, force=False):
+        Process.__init__(self)
         self.parent = parent
         self.config = config
         self.force = force
@@ -187,13 +191,13 @@ class Inversion():
 
     def make_directories(self):
         self.base_path = self.config['INVERSION_DIR'].rsplit('/', 1)[0] 
-        _logger.info('creating output directory: %s'%self.base_path)
+        logging.info('creating output directory: %s'%self.base_path)
         make_sane_directories(self.base_path, self.force)
         make_sane_directories(self.config['INVERSION_DIR'], self.force)
         make_sane_directories(self.config['DATA_DIR'], self.force)
     
     def run(self):
-        _logger.info('starting inversion %s'%self.inversion_id)
+        logging.info('starting inversion %s'%self.inversion_id)
         fn = pjoin(self.base_path, 'rapid.inp')
         run_rapidinv(fn)
 
@@ -202,10 +206,10 @@ class Inversion():
                                            reset_time=self.config.reset_time)
         self.parent.gfdb.adjust_sampling_rates(self.traces)
         if self.traces==None:
-            _logger.debug('No Data found %s'%self.event)
+            logging.debug('No Data found %s'%self.event)
             return False
         else:
-            _logger.info('Found Data %s'%self.event.time_as_string())
+            logging.info('Found Data %s'%self.event.time_as_string())
             return True
 
     def make_station_file(self):
@@ -217,7 +221,7 @@ class Inversion():
         with open(fn, 'w') as f:
             f.write(stats)
 
-        _logger.debug('ID %s -  station file: %s'%(self.inversion_id, fn))
+        logging.debug('ID %s -  station file: %s'%(self.inversion_id, fn))
 
     def out_of_bounds(self, tr):
         return tr.nslc_id in self.out_of_bounds
