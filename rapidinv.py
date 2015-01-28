@@ -37,6 +37,7 @@
 
 
 
+import logging
 import re
 import sys
 import os
@@ -91,7 +92,7 @@ def assignSpacing(inv_param):
    cod="RADIUS0"
    val=str(max(dx,dz))
    inv_param[cod]=val
-   print "radius 0 set to ",val
+   logging.info("radius 0 set to %s"%val)
 
 class ParamChecker():
     """General purpose parameter checking class. Intended to detect problems
@@ -266,11 +267,11 @@ def plotDelay(time0,year0,time1,year1,time2,year2,time3,year3,time4,year4):
    ttime2=time2-time1
    ttime3=time3-time2
    ttime4=time4-time3
-   print "Total time      : "+str(ttime)
-   print "  Preprocessing : "+str(ttime1)
-   print "  Step 1        : "+str(ttime2)
-   print "  Step 2        : "+str(ttime3)
-   print "  Step 3        : "+str(ttime4)
+   logging.info("Total time      : "+str(ttime))
+   logging.info("  Preprocessing : "+str(ttime1))
+   logging.info("  Step 1        : "+str(ttime2))
+   logging.info("  Step 2        : "+str(ttime3))
+   logging.info("  Step 3        : "+str(ttime4))
    mttime=float(ttime/60)
    mttime1=float(ttime1/60)
    mttime2=float(ttime2/60)
@@ -316,7 +317,7 @@ def calculateArea(inv_param,sdep,srad,sdip):
    surface_depth=0.
    if (depth <= surface_depth) or (depth >= moho_depth):
       area = 0.
-      print "WARNING, rupture area can not be calculated for this depth",depth
+      logging.warning("WARNING, rupture area can not be calculated for depth %s"%depth)
    else:
       projected_radius=radius*math.sin(dip)
       if (depth-projected_radius<surface_depth):
@@ -364,8 +365,8 @@ def sdisl2mt(strike_gra,dip_gra,rake_gra):
 def relativeMisfit(misfit,ref):
       rmisf=(misfit-ref)/ref
       if (rmisf < 0.):
-         print "WARNING: negative relative misfit found!"
-         print "misfit reference ",misfit,ref
+         logging.warning("WARNING: negative relative misfit found!")
+         logging.warning("misfit reference %s %s "%(misfit,ref))
          rmisf=0.
       return(rmisf)
 
@@ -451,7 +452,7 @@ def callTimeCalc(inv_param,phasetyp,phasedep,phasedis):
 	    phasetim=t3*1.75
 	 else:
 	    phasetim=0
-   print "TIME:",phasetyp,depth,dist,phasetim
+   logging.info("TIME: %s %s %s %s"%(phasetyp,depth,dist,phasetim))
    return phasetim
 
 
@@ -459,7 +460,7 @@ def getWindowsTaper(comp,depth,edist,inv_param,inv_step):
 #   print "Get windows taper"
    err_taper="ERROR: Wrong phase name chosen. P2US: "+inv_param['PHASES_2_USE_ST'+inv_step]   
    if not os.path.exists(inv_param['ARR_TIMES_DIR']):
-      print "Directory not existing: "+inv_param['ARR_TIMES_DIR']
+      logging.info("Directory not existing: "+inv_param['ARR_TIMES_DIR'])
       sys.exit("ERROR: wrong Earth model for arrival times: "+inv_param['ARR_TIMES_MODEL'])
    if "x" in inv_param['PHASES_2_USE_ST'+inv_step]:
       ptimes=[]
@@ -599,7 +600,7 @@ def getWindowsTaper(comp,depth,edist,inv_param,inv_step):
    for x in listx:
       y=max(ytrapez(x,trapez1),ytrapez(x,trapez2),ytrapez(x,trapez3))
       if (inv_param['SW_WEIGHT_DIST'].upper()=='TRUE'):
-         print "Distance-dipendent weight applied"
+         logging.info("Distance-dipendent weight applied")
          y=y*(float(edist)/float(inv_param['EPIC_DIST_MAX']))
 #      if (inv_step=='3'):
 #         edistmax=float(inv_param['EPIC_DIST_MAXKIN']) 
@@ -646,7 +647,7 @@ def writeMTSolutions(inv_step,mts,n_sol,dinv,filename):
 def writeEikSolutions(inv_step,eiko,n_sol,dinv,filename):
    feiksolutions=os.path.join(dinv,filename)
    f=open(feiksolutions,'w')
-   print "NUMBER_EIKO",n_sol
+   logging.info("NUMBER_EIKO %s"%n_sol)
    for i in range(n_sol):
       if (eiko[i].inv_step == inv_step):
          linsol=str(eiko[i].misfit)+" "+str(eiko[i].depth)+" "+str(eiko[i].smom)+" "
@@ -654,7 +655,7 @@ def writeEikSolutions(inv_step,eiko,n_sol,dinv,filename):
 	 linsol=linsol+str(eiko[i].radius)+" "+str(eiko[i].nuklx)+" "+str(eiko[i].nukly)+" "
 	 linsol=linsol+str(eiko[i].relruptvel)+" "+strDecim(eiko[i].risetime,2)+"\n"
          f.write(linsol)
-	 print "EIKO",i,linsol
+	 logging.info("EIKO %s %s "%(i,linsol_))
    f.flush()
    f.close()
 
@@ -664,7 +665,7 @@ def prepInvDir(inv_param):
       shutil.rmtree(inv_param['INVERSION_DIR'])
    os.mkdir(inv_param['INVERSION_DIR'])
    copyFiles(inv_param['DATA_DIR'],inv_param['INVERSION_DIR'])
-   print 'copied data from '+inv_param['DATA_DIR']
+   logging.info('copied data from '+inv_param['DATA_DIR'])
 
 
 def prepStations(inv_param,traces):
@@ -761,7 +762,7 @@ def prepStations(inv_param,traces):
    f.flush()
    f.close()
    if k>0:
-      print "WARNING: File "+fstations+" has wrong format, "+k+" lines have been skipped!"
+      logging.info("WARNING: File "+fstations+" has wrong format, "+k+" lines have been skipped!")
 
 # Rename data files and build SAC macros
 
@@ -922,8 +923,10 @@ def checkDataQuality(inv_step,inv_param,traces,freceivers,fdata):
    i=0
    for line in f:
       if re.search('nok',line):
-         print line
-         sys.exit('ERROR: minimizer internal error (minimizer.out - checkquality)')
+         logging.info(line)
+         msg = 'ERROR: minimizer internal error (minimizer.out - checkquality)'
+         logging.exception(msg)
+         sys.exit(msg)
       else:
          if not re.search('ok',line):
             text.append(line) 
@@ -950,10 +953,10 @@ def checkDataQuality(inv_step,inv_param,traces,freceivers,fdata):
 	 ncoef2.append(float(splittedline12[i*2+1])/float(splittedline11[i*2+1]))
       min_accepted=median_avmisf/float(inv_param['LEVEL_RELAMP'])
       max_accepted=median_avmisf*float(inv_param['LEVEL_RELAMP'])
-      print "median",median_avmisf 
-      print "min-ac",min_accepted
-      print "max-ac",max_accepted
-      print "traces",it
+      logging.info("median: %s"%median_avmisf )
+      logging.info("min-ac: %s"%min_accepted)
+      logging.info("max-ac: %s"%max_accepted)
+      logging.info("traces: %s"%it)
       for i in range(it):
          averagedmisfit=averagedmisfits[i]
 	 signaltonoise=ncoef2[i]
@@ -965,7 +968,7 @@ def checkDataQuality(inv_step,inv_param,traces,freceivers,fdata):
 	    traces[i].quality="nok-noise"
       fnok = open (os.path.join(inv_param['INVERSION_DIR'],'stations.unused'),'w')
       for i in range(it):
-	 print "trace",str(i+1),traces[i].quality
+	 logging.info("trace %s"%(str(i+1),traces[i].quality))
          if traces[i].quality<>"ok":
    	    fnok.write(traces[i].stat+" "+traces[i].comp+" "+traces[i].quality+" \n")
       fnok.flush()
@@ -1111,7 +1114,7 @@ def checkTaper(inv_param,inv_step):
    apply_taper=False
    if inv_param['SW_APPLY_TAPER']:
       apply_taper=True
-      print "Taper applied"
+      logging.info("Taper applied")
    if 'a' in inv_param['PHASES_2_USE_ST'+inv_step]:
       if len(inv_param['PHASES_2_USE_ST'+inv_step]) > 1:
          sys.exit("ERROR: if all trace to be fit (P2US=a), no other phases should be chosen")
@@ -1151,19 +1154,19 @@ def checkStrDipRak(smom,str1,dip1,rak1):
 
 
 def callMinimizer(fmininp,fminout):
-   print "Calling minimizer",fmininp
+   logging.info("Calling minimizer %s"%fmininp)
    cmd = 'minimizer < '+fmininp+' > '+fminout
-   print '1',fmininp,fminout
-   print '2',cmd
+   logging.info('1 %s %s'%(fmininp,fminout))
+   logging.info('2 %s '%cmd)
    os.system(cmd)
 
 def callParallelizedMinimizer(fmininp,fminout,nproc):
-   print "Calling minimizer",fmininp
-   print "   parallelized, number of processors: "+str(nproc)
+   logging.info("Calling minimizer %s"%fmininp)
+   logging.info("parallelized, number of processors: "+str(nproc))
    for i in range(nproc):
       cmd = 'minimizer < '+fmininp+"-proc"+str(i+1)+' > '+fminout+"-proc"+str(i+1)+'&'
-      print '1',fmininp,fminout
-      print '2',cmd
+      logging.info('1 %s %s'%(fmininp,fminout))
+      logging.info('2 %s'%cmd)
       os.system(cmd) 
    #check all have finished
    os.system("whoami > whoami.tmp")
@@ -1335,7 +1338,7 @@ def defineGridWalkDCsource(inv_step,start_point_solutions,point_solutions,inv_pa
       if (depu>depl):
          sys.exit("ERROR: upper limit for depths is below lower limit")  
       if inv_param['SW_RAPIDSTEP1'].upper()=='TRUE':
-         print "Step 1: Rapid mode activated"
+         logging.info("Step 1: Rapid mode activated")
          stdep,stmom=str(dep1),str(mom1)
 	 start_point_solutions.append(DCsource(inv_step,stmis,stnor,stest,sttim,stdep,'0','90','0',stmom,stmsh,strise))
 	 start_point_solutions.append(DCsource(inv_step,stmis,stnor,stest,sttim,stdep,'0','45','90',stmom,stmsh,strise))
@@ -1386,7 +1389,7 @@ def defineGridWalkDCsource(inv_step,start_point_solutions,point_solutions,inv_pa
       while loctim<=tim2:
          relativetimes.append(loctim)
 	 loctim=loctim+timstep
-      print "times",tim1,tim2,timstep
+      logging.info("times %s, %s, %s"%(tim1,tim2,timstep))
 #      refdep=1000*int(round(0.001*float(point_solutions[0].depth)))
       refdep=int(round(float(point_solutions[0].depth)))
       dep1=refdep+int(float(inv_param['REL_DEPTH_1']))
@@ -1432,7 +1435,7 @@ def defineGridWalkMTsource(inv_step,start_mt_solutions,mt_solutions,inv_param):
          for i22 in [-1,0]:
           for i23 in [-1,0]:
            for i33 in [-1,0]:
-            print "MOMTEN",i11,i12,i13,i22,i23,i33
+            logging.info("MOMTEN %s %s %s %s %s %s"%(i11,i12,i13,i22,i23,i33))
 	    stm11=str(float(mt_solutions[0].m11)+float(i11)*float(scmoment))
 	    stm12=str(float(mt_solutions[0].m12)+float(i12)*float(scmoment))
 	    stm13=str(float(mt_solutions[0].m13)+float(i13)*float(scmoment))
@@ -1765,7 +1768,7 @@ def calcAuxFaultPlane(inv_step,inv_param,point_solutions,best_point_solutions):
    time=point_solutions[0].time
    strise=point_solutions[0].risetime
    misf_shift=point_solutions[0].misf_shift
-   print "using "+str(strike)+" "+str(dip)+" "+str(rake)
+   logging.info("using "+str(strike)+" "+str(dip)+" "+str(rake))
    if (inv_step == '1'):
       for i in range (4):
          best_point_solutions.append(DCsource(inv_step,misfit,rnor,rest,time,depth,strike,dip,rake,\
@@ -1789,19 +1792,19 @@ def calcAuxFaultPlane(inv_step,inv_param,point_solutions,best_point_solutions):
          best_point_solutions[3].rake=best_point_solutions[3].rake + 180
       else:
          best_point_solutions[3].rake=best_point_solutions[3].rake - 180
-      print "best 4 solutions"
+      logging.info("best 4 solutions")
       for point_solution in best_point_solutions:   
          ostr,odip,orak=point_solution.strike,point_solution.dip,point_solution.rake
          omom=point_solution.smom
          cmom,cstr,cdip,crak=checkStrDipRak(omom,ostr,odip,orak)
          point_solution.strike,point_solution.dip,point_solution.rake=cstr,cdip,crak
          point_solution.smom=cmom
-      print "best 4 step 1 solutions"
+      logging.info("best 4 step 1 solutions")
       for point_solution in best_point_solutions:   
-         print point_solution.misfit,point_solution.strike,point_solution.dip,point_solution.rake
+         logging.info(" ".join(point_solution.misfit,point_solution.strike,point_solution.dip,point_solution.rake))
    elif (inv_step == '2'):
       best_point_solutions[1].strike,best_point_solutions[1].dip,best_point_solutions[1].rake=str2,dip2,rak2 
-      print "best 2 step 2 solutions"
+      logging.info("best 2 step 2 solutions")
       for point_solution in best_point_solutions:   
          if ( point_solution.inv_step == inv_step ):
 	    ostr,odip,orak=point_solution.strike,point_solution.dip,point_solution.rake
@@ -1837,7 +1840,7 @@ def calcAuxMTsolutions(inv_step,inv_param,mt_solutions,best_mt_solutions):
    
 
 def relMisfitCurves(inv_step,inv_param,point_solutions,best_point_solutions,n_point_solutions,apply_taper,fdata,freceivers):
-   print "Evaluating misfit curves for Depth-Strike-Dip-Rake..."
+   logging.info("Evaluating misfit curves for Depth-Strike-Dip-Rake...")
    slat,slon=inv_param['LATITUDE_NORTH'],inv_param['LONGITUDE_EAST']  
    fmininp=os.path.join(inv_param['INVERSION_DIR'],'minimizer.inp1-relmis')
    fminout=os.path.join(inv_param['INVERSION_DIR'],'minimizer.out1-relmis')
@@ -1884,9 +1887,9 @@ def relMisfitCurves(inv_step,inv_param,point_solutions,best_point_solutions,n_po
    snor,sest,stim=inv_param['ORIG_NORTH_SHIFT'],inv_param['ORIG_EAST_SHIFT'],inv_param['ORIG_TIME']
    dsds = []
    nang=int((2*float(inv_param['MISFIT_SDS_RANGE']))/float(inv_param['MISFIT_SDS_TICK']))+1
-   print str1,strike0,str2
-   print dip1,dip0,dip2
-   print rak1,rake0,rak2
+   logging.info(str1,strike0,str2)
+   logging.info(dip1,dip0,dip2)
+   logging.info(rak1,rake0,rak2)
    depthkm=dep1-deps
    for idep in range(nang):
       depthkm=depthkm+deps
@@ -1947,7 +1950,7 @@ def relMisfitCurves(inv_step,inv_param,point_solutions,best_point_solutions,n_po
          f.write("get_global_misfit\n") 
    f.flush()
    f.close()
-   print "Calling minimizer",fmininp
+   logging.info("Calling minimizer %s"%fmininp)
    cmd = 'minimizer < '+fmininp+' > '+fminout
    os.system(cmd)
    i=0
