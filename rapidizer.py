@@ -3,7 +3,7 @@ import os
 import shutil
 import logging
 import copy
-from multiprocessing import Process
+from multiprocessing import Process, Pool
 from pyrocko.util import time_to_str
 from pyrocko import io
 from pyrocko import model
@@ -12,6 +12,7 @@ from rapidinv import run_rapidinv
 from gfdb import GFDB
 
 mkdir = os.mkdir
+        
 
 def make_sane_directories(directory, force):
     if os.path.exists(directory):
@@ -151,13 +152,22 @@ class MultiEventInversion():
             else:
                 continue
 
-    def run_all(self, ncpus=1):
-
-        for i in self.inversions:
-            i.start()
-            
-        for i in self.inversions:
-            i.join()
+    def run_all(self, ncpus=1, log_level=logging.DEBUG):
+        # Auswirkung von maxtaskperchild testen
+        p = Pool(processes=ncpus,
+                 maxtasksperchild=2)
+        
+        logging.info("starting parallel %s processes"%ncpus)
+        file_paths = []
+        log_file_paths = []
+        pouts = []
+        for inv in self.inversions:
+            file_paths.append(inv.get_execute_filename())
+            log_file_paths.append(inv.get_log_filename())
+        log_levels = [log_level]*len(self.inversions)
+        p.map(run_rapidinv, zip(file_paths, log_file_paths, log_levels))
+        p.close()
+        p.join()
 
     def out_path(self, event):
         file_path = '_'.join(event.time_as_string().split())
@@ -196,10 +206,11 @@ class Inversion(Process):
         make_sane_directories(self.config['INVERSION_DIR'], self.force)
         make_sane_directories(self.config['DATA_DIR'], self.force)
     
-    def run(self):
-        logging.info('starting inversion %s'%self.inversion_id)
-        fn = pjoin(self.base_path, 'rapid.inp')
-        run_rapidinv(fn)
+    def get_execute_filename(self):
+        return pjoin(self.base_path, 'rapid.inp')
+
+    def get_log_filename(self):
+        return pjoin(self.base_path, 'rapid.log')
 
     def make_data(self, reader):
         self.traces = reader.get_waveforms(self.event, timespan=20.,

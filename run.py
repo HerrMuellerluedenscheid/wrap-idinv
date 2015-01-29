@@ -28,5 +28,5 @@ if __name__ == '__main__':
     inversion.prepare(force=True,
                       num_inversions=3)
 
-    inversion.run_all()
+    inversion.run_all(ncpus=1)
     logging.info('finished')
