@@ -2859,7 +2859,8 @@ def switchPointSolutions(point_solutions,i,j):
    point_solutions[j] = point_sol_buffer[0]
 
 
-def compareBestDCSourceInTime(inv_step,point_solutions,inv_param,freceivers,fdata):
+def compareBestDCSourceInTime(inv_step,point_solutions,inv_param,freceivers,fdata,
+                          apply_taper):
    mininp=os.path.join(inv_param['INVERSION_DIR'],'minimizer.inp'+inv_step+'-compare')
    minout=os.path.join(inv_param['INVERSION_DIR'],'minimizer.out'+inv_step+'-compare')
    f = open (mininp,'w')
@@ -3846,7 +3847,7 @@ def inversionDCsource(inv_step,inv_param,point_solutions,best_point_solutions,tr
       n_local_loops=int(inv_param['LOOPS_SDS_CONF'])
    elif (inv_step == '2'):
       print 'Inversion step 2'
-      compareBestDCSourceInTime(inv_step,point_solutions,inv_param,freceivers,fdata)
+      compareBestDCSourceInTime(inv_step,point_solutions,inv_param,freceivers,fdata, apply_taper)
       n_local_loops=int(inv_param['LOOPS_LOC_CONF'])
    else:
       sys.exit("ERROR: something went wrong with the starting configurations, "+inv_step)
