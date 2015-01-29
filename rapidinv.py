@@ -1598,7 +1598,11 @@ def updateGridWalkDCsource(inv_step,point_solutions,start_point_solutions,inv_pa
       dep1=round(float(point_solutions[0].depth))-round(float(inv_param['DEPTH_STEP'])/irun)
       dep2=round(float(point_solutions[0].depth))+round(float(inv_param['DEPTH_STEP'])/irun)
       deps=round(float(inv_param['DEPTH_STEP'])/(irun*float(inv_param['REDUCE_DEP_CONF'])))
+      
+      # OVERWRITES dep1 and dep2 two lines above!!!!!!!!!!!!!!!
       dep1=dep2=int(point_solutions[0].depth)
+
+
       deps=round(float(inv_param['DEPTH_STEP']))
       str1=round(float(point_solutions[0].strike))-round(float(inv_param['STRIKE_STEP'])/irun)
       str2=round(float(point_solutions[0].strike))+round(float(inv_param['STRIKE_STEP'])/irun)
@@ -1617,10 +1621,10 @@ def updateGridWalkDCsource(inv_step,point_solutions,start_point_solutions,inv_pa
          dips=1
       if raks<1:
          raks=1
-      for depth in range(dep1,dep2+1,deps):
-         for strike in range(str1,str2+1,strs):
-            for dip in range(dip1,dip2+1,dips):
-               for rake in range(rak1,rak2+1,raks):
+      for depth in range(int(dep1), int(dep2)+1,int(deps)):
+         for strike in range(int(str1), int(str2)+1, int(strs)):
+            for dip in range(int(dip1), int(dip2)+1, int(dips)):
+               for rake in range(int(rak1), int(rak2)+1, int(raks)):
                   start_point_solutions.append(DCsource(inv_step,misfit,rnor,rest,time,depth,strike,dip,rake,\
 	                                                smom,stmsh,strise))
 #     start_point_solutions.sort(key=operator.attrgetter('depth'))
@@ -1801,7 +1805,7 @@ def calcAuxFaultPlane(inv_step,inv_param,point_solutions,best_point_solutions):
          point_solution.smom=cmom
       logging.info("best 4 step 1 solutions")
       for point_solution in best_point_solutions:   
-         logging.info(" ".join(point_solution.misfit,point_solution.strike,point_solution.dip,point_solution.rake))
+         logging.info("%s %s %s %s"%(point_solution.misfit,point_solution.strike,point_solution.dip,point_solution.rake))
    elif (inv_step == '2'):
       best_point_solutions[1].strike,best_point_solutions[1].dip,best_point_solutions[1].rake=str2,dip2,rak2 
       logging.info("best 2 step 2 solutions")
