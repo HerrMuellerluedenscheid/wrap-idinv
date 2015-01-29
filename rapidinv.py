@@ -4858,7 +4858,7 @@ def plotDCSolution(inv_step,inv_param,all,best,traces):
 	       linesynt="psxy <"+fttrace+" -R"+asp_rt+" -BWSNE -X0 -Y0 -JX -P -K -O -W1/100 -G150 >>"+fplot+"\n"
                f.write(linesynt)
          else:
-	    print fdtrace+" not found"
+	    logging.error(fdtrace%"%s not found")
    icomp=0
    for comp in usedcomp:
        icomp=icomp+1
@@ -4887,7 +4887,7 @@ def plotDCSolution(inv_step,inv_param,all,best,traces):
 
 
 def plotEikSolution(inv_step,inv_param,all,best,traces):
-   print "Plotting results inversion step "+inv_step+"..."
+   logging.info("Plotting results inversion step %s ..."%inv_step)
    slat=inv_param['LATITUDE_NORTH']
    slon=inv_param['LONGITUDE_EAST']
    dinv=inv_param['INVERSION_DIR']
@@ -5018,7 +5018,7 @@ def plotEikSolution(inv_step,inv_param,all,best,traces):
 	       north,east,down,alongstrike,downdip,time,alfa,beta,rho=splittedline
                ftime=float(time)
 	       if (int(float(time))==-1):
-	          print "skipped discrete source"
+	          logging.info("skipped discrete source")
 	       else:
   	          if (ftime<discrete_source_tmin):
 	             discrete_source_tmin=ftime
@@ -5046,15 +5046,15 @@ def plotEikSolution(inv_step,inv_param,all,best,traces):
    truesmom=float(inv_param['SCALING_FACTOR'])*float(best[0].smom)
    average_slip_m=calculateAverageSlip(truesmom,area_m2,average_shear_modulus)
    if area_m2<0:
-      print "WARNING: wrong area value from best_eikonal file: ",area_m2
+      logging.warning("WARNING: wrong area value from best_eikonal file: %s"%area_m2)
       area_m2=calculateArea(inv_param,best[0].depth,best[0].radius,best[0].dip)
-      print "recalculated to :",area_m2
+      logging.warning("recalculated to: %s"%area_m2)
    area_km2=area_m2/1000000.
    fixed_shear_modulus=36.e9
    old_average_slip_m=calculateAverageSlip(best[0].smom,area_m2,fixed_shear_modulus)
    if (average_slip_m <> old_average_slip_m):
-      print "WARNING: old average slip in meters: ",old_average_slip_m
-      print "         new average slip in meters: ",average_slip_m     
+      logging.warning("WARNING: old average slip in meters: %s"%old_average_slip_m)
+      logging.warning("         new average slip in meters: %s"%average_slip_m)
 #  Build rupture plot
    f=open(fcolor,'w')
    if duration <=0.05:
@@ -5196,10 +5196,10 @@ def plotEikSolution(inv_step,inv_param,all,best,traces):
       fbord.close()      
 #     Discretized source (copying to file)
       fdisc=open(fdiscrete,'w')
-      print "DISCRETE_TIME"
-      print "DURATION "+str(duration)
-      print "START    "+str(discrete_source_tmin)
-      print "END      "+str(discrete_source_tmax)
+      logging.info("DISCRETE_TIME")
+      logging.info("DURATION "+str(duration))
+      logging.info("START    "+str(discrete_source_tmin))
+      logging.info("END      "+str(discrete_source_tmax))
       for point_inside in tdsm:       
 #	north=0.001*(float(point_inside.north)-float(center_north))
 #	east=0.001*(float(point_inside.east)-float(center_east))
@@ -5445,7 +5445,7 @@ def plotEikSolution(inv_step,inv_param,all,best,traces):
 	       linesynt="psxy <"+fttrace+" -R"+asp_rt+" -BWSNE -X0 -Y0 -JX -P -K -O -W1/100 -G150 >>"+fplot+"\n"
                f.write(linesynt)
          else:
-	    print fdtrace+" not found"
+	    logging.error(fdtrace+" not found")
    icomp=0
    for comp in usedcomp:
        icomp=icomp+1
@@ -5608,10 +5608,10 @@ start_eikonals,eikonal_solutions_3,best_eikonal_solutions_3=[],[],[]
 def run_rapidinv(finput):
     # Initializing
     time0,year0=getTime()
-    print 'Initializing'
+    logging.info('Initializing')
 
     # Read input file, check and prepare inversion parameters
-    print 'Read input file, check and prepare inversion parameters'
+    logging.info('Read input file, check and prepare inversion parameters')
     fdefaults,facceptables = 'rapidinv.defaults','rapidinv.acceptables'
     if ( not finput ):
        print "Correct usage: python rapidinv.py <input_filename>"
@@ -5619,7 +5619,7 @@ def run_rapidinv(finput):
     processInvParam(finput,fdefaults,facceptables,inv_param,active_comp,active_chan,comp_names)
 
     # Prepare inversion directory, choose stations, prepare data
-    print 'Prepare inversion directory, choose stations, prepare data'
+    logging.info('Prepare inversion directory, choose stations, prepare data')
     inv_step='1'
     apply_taper=checkTaper(inv_param,inv_step)
     prepInvDir(inv_param)
@@ -5632,9 +5632,9 @@ def run_rapidinv(finput):
     if (int(float(inv_param['NUM_INV_STEPS']))>=1) and (int(float(inv_param['NUM_INV_STEPS']))<=3):
        inv_step='1'
        apply_taper=checkTaper(inv_param,inv_step)
-       print 'Double couple source inversion (freq domain) - step 1'
+       logging.info('Double couple source inversion (freq domain) - step 1')
        inversionDCsource(inv_step,inv_param,point_solutions_1,best_point_solutions_1,traces,apply_taper)
-       print 'Point source inversion (freq domain) - plotting'
+       logging.info('Point source inversion (freq domain) - plotting')
        plotDCSolution(inv_step,inv_param,point_solutions_1,best_point_solutions_1,traces)
     #   print 'Moment tensor inversion (freq domain) - step 1b'
     #   mt_solutions_1.append(point2mt(best_point_solutions_1[0],inv_param,inv_step))
@@ -5644,11 +5644,11 @@ def run_rapidinv(finput):
     time2,year2=getTime()
     if (int(float(inv_param['NUM_INV_STEPS']))>=2) and (int(float(inv_param['NUM_INV_STEPS']))<=3):
        inv_step='2'
-       print 'Double couple source inversion (time domain) - step 2'
+       logging.info('Double couple source inversion (time domain) - step 2')
        point_solutions_2.append(best_point_solutions_1[0])
        point_solutions_2.append(best_point_solutions_1[1])
        inversionDCsource(inv_step,inv_param,point_solutions_2,best_point_solutions_2,traces,apply_taper) 
-       print 'Point source inversion (time domain) - plotting'
+       logging.info('Point source inversion (time domain) - plotting')
        plotDCSolution(inv_step,inv_param,point_solutions_2,best_point_solutions_2,traces)
     #   print 'Moment tensor source inversion (time domain) - step 2b'
     #   mt_solutions_2.append(best_mt_solutions_1[0])
@@ -5659,19 +5659,19 @@ def run_rapidinv(finput):
     time3,year3=getTime()
     if int(float(inv_param['NUM_INV_STEPS']))==3:
        inv_step='3'
-       print 'Eikonal source inversion (time domain) - step 3'
+       logging.info('Eikonal source inversion (time domain) - step 3')
        eikonal_solutions_3.append(point2eikonal(best_point_solutions_2[0],inv_param,inv_step))
        eikonal_solutions_3.append(point2eikonal(best_point_solutions_2[1],inv_param,inv_step))
        inversionEIKsource(inv_step,inv_param,start_eikonals,eikonal_solutions_3,best_eikonal_solutions_3,traces,\
                           apply_taper,best_point_solutions_2)
-       print 'Eikonal source inversion (time domain) - plotting'
+       logging.info('Eikonal source inversion (time domain) - plotting')
        plotEikSolution(inv_step,inv_param,eikonal_solutions_3,best_eikonal_solutions_3,traces)
 
     # Clean inversion directory
     # removeLocalDataFiles(inv_param,traces)
     time4,year4=getTime()
     plotDelay(time0,year0,time1,year1,time2,year2,time3,year3,time4,year4)
-    print "Ho finito!" 
+    logging.info("Ho finito!")
 
 if __name__=='__main__':
     if len(sys.argv)!=2:
