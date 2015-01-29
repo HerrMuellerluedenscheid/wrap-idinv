@@ -37,7 +37,7 @@
 
 
 
-import logging
+import logging 
 import re
 import sys
 import os
@@ -52,6 +52,8 @@ from datetime import datetime
 from numpy import mean,std,var
 from tunguska.phase import Phase,Timing
 
+
+logger = logging.getLogger('rapidinv')
 
 def readDefInputFile(fdefaults,inv_param):
    try:
@@ -92,7 +94,7 @@ def assignSpacing(inv_param):
    cod="RADIUS0"
    val=str(max(dx,dz))
    inv_param[cod]=val
-   logging.info("radius 0 set to %s"%val)
+   logger.info("radius 0 set to %s"%val)
 
 class ParamChecker():
     """General purpose parameter checking class. Intended to detect problems
@@ -267,11 +269,11 @@ def plotDelay(time0,year0,time1,year1,time2,year2,time3,year3,time4,year4):
    ttime2=time2-time1
    ttime3=time3-time2
    ttime4=time4-time3
-   logging.info("Total time      : "+str(ttime))
-   logging.info("  Preprocessing : "+str(ttime1))
-   logging.info("  Step 1        : "+str(ttime2))
-   logging.info("  Step 2        : "+str(ttime3))
-   logging.info("  Step 3        : "+str(ttime4))
+   logger.info("Total time      : "+str(ttime))
+   logger.info("  Preprocessing : "+str(ttime1))
+   logger.info("  Step 1        : "+str(ttime2))
+   logger.info("  Step 2        : "+str(ttime3))
+   logger.info("  Step 3        : "+str(ttime4))
    mttime=float(ttime/60)
    mttime1=float(ttime1/60)
    mttime2=float(ttime2/60)
@@ -317,7 +319,7 @@ def calculateArea(inv_param,sdep,srad,sdip):
    surface_depth=0.
    if (depth <= surface_depth) or (depth >= moho_depth):
       area = 0.
-      logging.warning("WARNING, rupture area can not be calculated for depth %s"%depth)
+      logger.warning("WARNING, rupture area can not be calculated for depth %s"%depth)
    else:
       projected_radius=radius*math.sin(dip)
       if (depth-projected_radius<surface_depth):
@@ -365,8 +367,8 @@ def sdisl2mt(strike_gra,dip_gra,rake_gra):
 def relativeMisfit(misfit,ref):
       rmisf=(misfit-ref)/ref
       if (rmisf < 0.):
-         logging.warning("WARNING: negative relative misfit found!")
-         logging.warning("misfit reference %s %s "%(misfit,ref))
+         logger.warning("WARNING: negative relative misfit found!")
+         logger.warning("misfit reference %s %s "%(misfit,ref))
          rmisf=0.
       return(rmisf)
 
@@ -452,7 +454,7 @@ def callTimeCalc(inv_param,phasetyp,phasedep,phasedis):
 	    phasetim=t3*1.75
 	 else:
 	    phasetim=0
-   logging.info("TIME: %s %s %s %s"%(phasetyp,depth,dist,phasetim))
+   logger.info("TIME: %s %s %s %s"%(phasetyp,depth,dist,phasetim))
    return phasetim
 
 
@@ -460,7 +462,7 @@ def getWindowsTaper(comp,depth,edist,inv_param,inv_step):
 #   print "Get windows taper"
    err_taper="ERROR: Wrong phase name chosen. P2US: "+inv_param['PHASES_2_USE_ST'+inv_step]   
    if not os.path.exists(inv_param['ARR_TIMES_DIR']):
-      logging.info("Directory not existing: "+inv_param['ARR_TIMES_DIR'])
+      logger.info("Directory not existing: "+inv_param['ARR_TIMES_DIR'])
       sys.exit("ERROR: wrong Earth model for arrival times: "+inv_param['ARR_TIMES_MODEL'])
    if "x" in inv_param['PHASES_2_USE_ST'+inv_step]:
       ptimes=[]
@@ -600,7 +602,7 @@ def getWindowsTaper(comp,depth,edist,inv_param,inv_step):
    for x in listx:
       y=max(ytrapez(x,trapez1),ytrapez(x,trapez2),ytrapez(x,trapez3))
       if (inv_param['SW_WEIGHT_DIST'].upper()=='TRUE'):
-         logging.info("Distance-dipendent weight applied")
+         logger.info("Distance-dipendent weight applied")
          y=y*(float(edist)/float(inv_param['EPIC_DIST_MAX']))
 #      if (inv_step=='3'):
 #         edistmax=float(inv_param['EPIC_DIST_MAXKIN']) 
@@ -647,7 +649,7 @@ def writeMTSolutions(inv_step,mts,n_sol,dinv,filename):
 def writeEikSolutions(inv_step,eiko,n_sol,dinv,filename):
    feiksolutions=os.path.join(dinv,filename)
    f=open(feiksolutions,'w')
-   logging.info("NUMBER_EIKO %s"%n_sol)
+   logger.info("NUMBER_EIKO %s"%n_sol)
    for i in range(n_sol):
       if (eiko[i].inv_step == inv_step):
          linsol=str(eiko[i].misfit)+" "+str(eiko[i].depth)+" "+str(eiko[i].smom)+" "
@@ -655,7 +657,7 @@ def writeEikSolutions(inv_step,eiko,n_sol,dinv,filename):
 	 linsol=linsol+str(eiko[i].radius)+" "+str(eiko[i].nuklx)+" "+str(eiko[i].nukly)+" "
 	 linsol=linsol+str(eiko[i].relruptvel)+" "+strDecim(eiko[i].risetime,2)+"\n"
          f.write(linsol)
-	 logging.info("EIKO %s %s "%(i,linsol_))
+	 logger.info("EIKO %s %s "%(i,linsol_))
    f.flush()
    f.close()
 
@@ -665,7 +667,7 @@ def prepInvDir(inv_param):
       shutil.rmtree(inv_param['INVERSION_DIR'])
    os.mkdir(inv_param['INVERSION_DIR'])
    copyFiles(inv_param['DATA_DIR'],inv_param['INVERSION_DIR'])
-   logging.info('copied data from '+inv_param['DATA_DIR'])
+   logger.info('copied data from '+inv_param['DATA_DIR'])
 
 
 def prepStations(inv_param,traces):
@@ -762,7 +764,7 @@ def prepStations(inv_param,traces):
    f.flush()
    f.close()
    if k>0:
-      logging.info("WARNING: File "+fstations+" has wrong format, "+k+" lines have been skipped!")
+      logger.info("WARNING: File "+fstations+" has wrong format, "+k+" lines have been skipped!")
 
 # Rename data files and build SAC macros
 
@@ -923,9 +925,9 @@ def checkDataQuality(inv_step,inv_param,traces,freceivers,fdata):
    i=0
    for line in f:
       if re.search('nok',line):
-         logging.info(line)
+         logger.info(line)
          msg = 'ERROR: minimizer internal error (minimizer.out - checkquality)'
-         logging.exception(msg)
+         logger.exception(msg)
          sys.exit(msg)
       else:
          if not re.search('ok',line):
@@ -953,10 +955,10 @@ def checkDataQuality(inv_step,inv_param,traces,freceivers,fdata):
 	 ncoef2.append(float(splittedline12[i*2+1])/float(splittedline11[i*2+1]))
       min_accepted=median_avmisf/float(inv_param['LEVEL_RELAMP'])
       max_accepted=median_avmisf*float(inv_param['LEVEL_RELAMP'])
-      logging.info("median: %s"%median_avmisf )
-      logging.info("min-ac: %s"%min_accepted)
-      logging.info("max-ac: %s"%max_accepted)
-      logging.info("traces: %s"%it)
+      logger.info("median: %s"%median_avmisf )
+      logger.info("min-ac: %s"%min_accepted)
+      logger.info("max-ac: %s"%max_accepted)
+      logger.info("traces: %s"%it)
       for i in range(it):
          averagedmisfit=averagedmisfits[i]
 	 signaltonoise=ncoef2[i]
@@ -968,7 +970,7 @@ def checkDataQuality(inv_step,inv_param,traces,freceivers,fdata):
 	    traces[i].quality="nok-noise"
       fnok = open (os.path.join(inv_param['INVERSION_DIR'],'stations.unused'),'w')
       for i in range(it):
-	 logging.info("trace %s"%(str(i+1),traces[i].quality))
+	 logger.info("trace %s"%(str(i+1),traces[i].quality))
          if traces[i].quality<>"ok":
    	    fnok.write(traces[i].stat+" "+traces[i].comp+" "+traces[i].quality+" \n")
       fnok.flush()
@@ -1114,7 +1116,7 @@ def checkTaper(inv_param,inv_step):
    apply_taper=False
    if inv_param['SW_APPLY_TAPER']:
       apply_taper=True
-      logging.info("Taper applied")
+      logger.info("Taper applied")
    if 'a' in inv_param['PHASES_2_USE_ST'+inv_step]:
       if len(inv_param['PHASES_2_USE_ST'+inv_step]) > 1:
          sys.exit("ERROR: if all trace to be fit (P2US=a), no other phases should be chosen")
@@ -1154,19 +1156,19 @@ def checkStrDipRak(smom,str1,dip1,rak1):
 
 
 def callMinimizer(fmininp,fminout):
-   logging.info("Calling minimizer %s"%fmininp)
+   logger.info("Calling minimizer %s"%fmininp)
    cmd = 'minimizer < '+fmininp+' > '+fminout
-   logging.info('1 %s %s'%(fmininp,fminout))
-   logging.info('2 %s '%cmd)
+   logger.info('1 %s %s'%(fmininp,fminout))
+   logger.info('2 %s '%cmd)
    os.system(cmd)
 
 def callParallelizedMinimizer(fmininp,fminout,nproc):
-   logging.info("Calling minimizer %s"%fmininp)
-   logging.info("parallelized, number of processors: "+str(nproc))
+   logger.info("Calling minimizer %s"%fmininp)
+   logger.info("parallelized, number of processors: "+str(nproc))
    for i in range(nproc):
       cmd = 'minimizer < '+fmininp+"-proc"+str(i+1)+' > '+fminout+"-proc"+str(i+1)+'&'
-      logging.info('1 %s %s'%(fmininp,fminout))
-      logging.info('2 %s'%cmd)
+      logger.info('1 %s %s'%(fmininp,fminout))
+      logger.info('2 %s'%cmd)
       os.system(cmd) 
    #check all have finished
    os.system("whoami > whoami.tmp")
@@ -1338,7 +1340,7 @@ def defineGridWalkDCsource(inv_step,start_point_solutions,point_solutions,inv_pa
       if (depu>depl):
          sys.exit("ERROR: upper limit for depths is below lower limit")  
       if inv_param['SW_RAPIDSTEP1'].upper()=='TRUE':
-         logging.info("Step 1: Rapid mode activated")
+         logger.info("Step 1: Rapid mode activated")
          stdep,stmom=str(dep1),str(mom1)
 	 start_point_solutions.append(DCsource(inv_step,stmis,stnor,stest,sttim,stdep,'0','90','0',stmom,stmsh,strise))
 	 start_point_solutions.append(DCsource(inv_step,stmis,stnor,stest,sttim,stdep,'0','45','90',stmom,stmsh,strise))
@@ -1389,13 +1391,13 @@ def defineGridWalkDCsource(inv_step,start_point_solutions,point_solutions,inv_pa
       while loctim<=tim2:
          relativetimes.append(loctim)
 	 loctim=loctim+timstep
-      logging.info("times %s, %s, %s"%(tim1,tim2,timstep))
+      logger.info("times %s, %s, %s"%(tim1,tim2,timstep))
 #      refdep=1000*int(round(0.001*float(point_solutions[0].depth)))
       refdep=int(round(float(point_solutions[0].depth)))
       dep1=refdep+int(float(inv_param['REL_DEPTH_1']))
       dep2=refdep+int(float(inv_param['REL_DEPTH_2']))
       depstep=int(float(inv_param['REL_DEPTH_STEP']))     
-      print "DEPs ",dep1,dep2,depstep,point_solutions[0].depth
+      logger.info("DEPs %s %s %s %s"%(dep1,dep2,depstep,point_solutions[0].depth))
       sttim,stmis,stmsh=point_solutions[0].time,99999,99999
 #      stdep=point_solutions[0].depth
       stmom=point_solutions[0].smom
@@ -1435,7 +1437,7 @@ def defineGridWalkMTsource(inv_step,start_mt_solutions,mt_solutions,inv_param):
          for i22 in [-1,0]:
           for i23 in [-1,0]:
            for i33 in [-1,0]:
-            logging.info("MOMTEN %s %s %s %s %s %s"%(i11,i12,i13,i22,i23,i33))
+            logger.info("MOMTEN %s %s %s %s %s %s"%(i11,i12,i13,i22,i23,i33))
 	    stm11=str(float(mt_solutions[0].m11)+float(i11)*float(scmoment))
 	    stm12=str(float(mt_solutions[0].m12)+float(i12)*float(scmoment))
 	    stm13=str(float(mt_solutions[0].m13)+float(i13)*float(scmoment))
@@ -1772,7 +1774,7 @@ def calcAuxFaultPlane(inv_step,inv_param,point_solutions,best_point_solutions):
    time=point_solutions[0].time
    strise=point_solutions[0].risetime
    misf_shift=point_solutions[0].misf_shift
-   logging.info("using "+str(strike)+" "+str(dip)+" "+str(rake))
+   logger.info("using "+str(strike)+" "+str(dip)+" "+str(rake))
    if (inv_step == '1'):
       for i in range (4):
          best_point_solutions.append(DCsource(inv_step,misfit,rnor,rest,time,depth,strike,dip,rake,\
@@ -1796,19 +1798,19 @@ def calcAuxFaultPlane(inv_step,inv_param,point_solutions,best_point_solutions):
          best_point_solutions[3].rake=best_point_solutions[3].rake + 180
       else:
          best_point_solutions[3].rake=best_point_solutions[3].rake - 180
-      logging.info("best 4 solutions")
+      logger.info("best 4 solutions")
       for point_solution in best_point_solutions:   
          ostr,odip,orak=point_solution.strike,point_solution.dip,point_solution.rake
          omom=point_solution.smom
          cmom,cstr,cdip,crak=checkStrDipRak(omom,ostr,odip,orak)
          point_solution.strike,point_solution.dip,point_solution.rake=cstr,cdip,crak
          point_solution.smom=cmom
-      logging.info("best 4 step 1 solutions")
+      logger.info("best 4 step 1 solutions")
       for point_solution in best_point_solutions:   
-         logging.info("%s %s %s %s"%(point_solution.misfit,point_solution.strike,point_solution.dip,point_solution.rake))
+         logger.info("%s %s %s %s"%(point_solution.misfit,point_solution.strike,point_solution.dip,point_solution.rake))
    elif (inv_step == '2'):
       best_point_solutions[1].strike,best_point_solutions[1].dip,best_point_solutions[1].rake=str2,dip2,rak2 
-      logging.info("best 2 step 2 solutions")
+      logger.info("best 2 step 2 solutions")
       for point_solution in best_point_solutions:   
          if ( point_solution.inv_step == inv_step ):
 	    ostr,odip,orak=point_solution.strike,point_solution.dip,point_solution.rake
@@ -1844,7 +1846,7 @@ def calcAuxMTsolutions(inv_step,inv_param,mt_solutions,best_mt_solutions):
    
 
 def relMisfitCurves(inv_step,inv_param,point_solutions,best_point_solutions,n_point_solutions,apply_taper,fdata,freceivers):
-   logging.info("Evaluating misfit curves for Depth-Strike-Dip-Rake...")
+   logger.info("Evaluating misfit curves for Depth-Strike-Dip-Rake...")
    slat,slon=inv_param['LATITUDE_NORTH'],inv_param['LONGITUDE_EAST']  
    fmininp=os.path.join(inv_param['INVERSION_DIR'],'minimizer.inp1-relmis')
    fminout=os.path.join(inv_param['INVERSION_DIR'],'minimizer.out1-relmis')
@@ -1891,9 +1893,9 @@ def relMisfitCurves(inv_step,inv_param,point_solutions,best_point_solutions,n_po
    snor,sest,stim=inv_param['ORIG_NORTH_SHIFT'],inv_param['ORIG_EAST_SHIFT'],inv_param['ORIG_TIME']
    dsds = []
    nang=int((2*float(inv_param['MISFIT_SDS_RANGE']))/float(inv_param['MISFIT_SDS_TICK']))+1
-   logging.info(str1,strike0,str2)
-   logging.info(dip1,dip0,dip2)
-   logging.info(rak1,rake0,rak2)
+   logger.info(str1,strike0,str2)
+   logger.info(dip1,dip0,dip2)
+   logger.info(rak1,rake0,rak2)
    depthkm=dep1-deps
    for idep in range(nang):
       depthkm=depthkm+deps
@@ -1954,7 +1956,7 @@ def relMisfitCurves(inv_step,inv_param,point_solutions,best_point_solutions,n_po
          f.write("get_global_misfit\n") 
    f.flush()
    f.close()
-   logging.info("Calling minimizer %s"%fmininp)
+   logger.info("Calling minimizer %s"%fmininp)
    cmd = 'minimizer < '+fmininp+' > '+fminout
    os.system(cmd)
    i=0
@@ -1962,8 +1964,10 @@ def relMisfitCurves(inv_step,inv_param,point_solutions,best_point_solutions,n_po
    text=[]
    for line in f:
       if re.search('nok',line):
-         print line
-         sys.exit('ERROR: minimizer internal error (minimizer2.out)')
+         logger.error(line)
+         errmsg='ERROR: minimizer internal error (minimizer2.out)'
+         logger.error(errmsg)
+         sys.exit(errmsg)
       else:
          if not re.search('ok',line):
             text.append(line)
@@ -4033,9 +4037,9 @@ def findUnfittingStations(inv_step,inv_param,eikonals,traces,apply_taper,best_po
    averagemisfit=mean(singlemisfits)
    standarddev=std(singlemisfits)
    maxadmittedmisfit=averagemisfit+standarddev
-   print "singlemisfits",singlemisfits
-   print "average",averagemisfit
-   print "bad above",maxadmittedmisfit
+   logger.info("singlemisfits %s"%singlemisfits)
+   logger.info("average %s"%averagemisfit)
+   logger.info("bad above %s"%maxadmittedmisfit)
 #  Build new station file (only traces which here fit when lowpassed will be later used for kinematic inversion)
    finp=os.path.join(inv_param['INVERSION_DIR'],'stations.table.kin')
    fout=os.path.join(inv_param['INVERSION_DIR'],'stations.table.kin.good')
@@ -4078,13 +4082,13 @@ def calcBootstrapMisfit(locallinemisfits,randomindexes):
 def runBootstrapStep2(inv_step,inv_param,point_solutions,n_point_solutions,minout,\
                       ptsolutions,freceivers,fdata,apply_taper,lines_singlemisfits):
    if (inv_step == '2'):
-      print 'Bootstrap inversion step 2'
+      logger.info('Bootstrap inversion step 2')
    else:
       sys.exit("ERROR: something went wrong with the bootstrap, "+inv_step)
    n_solutions_to_check=len(ptsolutions)
    if len(lines_singlemisfits) <> n_solutions_to_check:
-      print "ERROR: inconsistent number of lines", len(lines_singlemisfits),len(ptsolutions)
-      print len(lines_singlemisfits),len(ptsolutions)
+      logger.error("inconsistent number of lines %s %s"%(len(lines_singlemisfits),len(ptsolutions)))
+      logger.error("%s %s"%(len(lines_singlemisfits),len(ptsolutions)))
       sys.exit("ERROR: runDCBootstrap failed, step "+inv_step)
    
    testedcentroids=[]   
@@ -4171,11 +4175,11 @@ def runBootstrapStep2(inv_step,inv_param,point_solutions,n_point_solutions,minou
 
 def runEIKBootstrap(inv_step,result_eikonals,n_eikonals,eikonals,lines_singlemisfits):
    if (inv_step == '3'):
-      print 'Bootstrap inversion step 3'
+      logger.info('Bootstrap inversion step 3')
    else:
       sys.exit("ERROR: something went wrong with the bootstrap, "+inv_step)
    if len(lines_singlemisfits) <> len(eikonals):
-      print "ERROR: inconsistent number of lines", len(lines_singlemisfits),len(eikonals)
+      logger.error("inconsistent number of lines %s %s"%(len(lines_singlemisfits),len(eikonals)))
       sys.exit("ERROR: runEIKBootstrap failed")
 
    bestmisfit1=99999.
@@ -4340,7 +4344,7 @@ def inversionEIKsource(inv_step,inv_param,start_eikonals,eikonals,best_eikonals,
       freceivers=os.path.join(inv_param['INVERSION_DIR'],'stations.table.kin.good')
    fdata=os.path.join(inv_param['INVERSION_DIR'],inv_param['DATA_FILE'])
    if (inv_step == '3'):
-      print 'Inversion step 3'
+      logger.indo('Inversion step 3')
 #      n_local_loops=int(inv_param['LOOPS_EIK_CONF'])
       n_local_loops=1  
    else:
@@ -4351,15 +4355,15 @@ def inversionEIKsource(inv_step,inv_param,start_eikonals,eikonals,best_eikonals,
    if (inv_param['SW_GOODSTATIONS'].upper()=='TRUE'):
       findUnfittingStations(inv_step,inv_param,eikonals,traces,apply_taper,best_point,mohodepth)
 #  Define first grid walk
-   print 'BEFORE APPENDING ',len(start_eikonals)
+   logger.info('BEFORE APPENDING %s'%len(start_eikonals))
    defineGridWalkEikonalsource(inv_step,start_eikonals,eikonals,inv_param)
-   print 'STARTING EIKONALS ',len(start_eikonals)
+   logger.info('STARTING EIKONALS %s'%len(start_eikonals))
    for eikonal in start_eikonals:
-      print eikonal.strike,eikonal.dip,eikonal.rake,\
-            eikonal.nuklx,eikonal.nukly,eikonal.radius,eikonal.relruptvel
+      logger.info('%s %s %s %s %s %s %s'%(eikonal.strike,eikonal.dip,eikonal.rake,\
+            eikonal.nuklx,eikonal.nukly,eikonal.radius,eikonal.relruptvel)
 
 #  Prepare eikonal source inversion, looping over starting configurations
-   print 'number of eikonal starting sources ',len(start_eikonals)
+   logger.info('number of eikonal starting sources %s '%len(start_eikonals))
    for iloop in range(n_local_loops): 
       irun=iloop+1
       mininp=os.path.join(inv_param['INVERSION_DIR'],'minimizer.inp'+inv_step+'-run'+str(irun))
@@ -4367,7 +4371,7 @@ def inversionEIKsource(inv_step,inv_param,start_eikonals,eikonals,best_eikonals,
       prepMinimizerInputEikonalsource(inv_step,mininp,minout,inv_param,freceivers,fdata,\
                                       apply_taper,irun,start_eikonals,mohodepth)
       n_eikonals = len(start_eikonals) 
-      print 'check',irun,n_eikonals     
+      logger.info('check %s %s' %(irun,n_eikonals))
 #  Calling minimizer for point source inversion
       callMinimizer(mininp,minout)
 #  Analysing eikonal source inversion results
@@ -4375,7 +4379,7 @@ def inversionEIKsource(inv_step,inv_param,start_eikonals,eikonals,best_eikonals,
       analyseResultsEikonalsource(inv_step,inv_param,eikonals,n_eikonals,minout,start_eikonals,lines_singlemisfits)
       runEIKBootstrap(inv_step,eikonals,n_eikonals,start_eikonals,lines_singlemisfits)
       eikonals.sort(key=operator.attrgetter('misfit'))
-      print 'best eiko',eikonals[0].misfit,eikonals[0].radius,eikonals[0].strike
+      logger.info('best eiko %s %s %s'%(eikonals[0].misfit,eikonals[0].radius,eikonals[0].strike))
       if (irun < n_local_loops):
          start_eikonals=[]
          updateGridWalkEikonalsource(inv_step,eikonals,start_eikonals,inv_param,irun)
@@ -4397,7 +4401,7 @@ def inversionEIKsource(inv_step,inv_param,start_eikonals,eikonals,best_eikonals,
 
 
 def plotDCSolution(inv_step,inv_param,all,best,traces):
-   print "Plotting results inversion step "+inv_step+"..."
+   logger.info("Plotting results inversion step %s ..."%inv_step)
    slat=inv_param['LATITUDE_NORTH']
    slon=inv_param['LONGITUDE_EAST']
    dinv=inv_param['INVERSION_DIR']
@@ -4858,7 +4862,7 @@ def plotDCSolution(inv_step,inv_param,all,best,traces):
 	       linesynt="psxy <"+fttrace+" -R"+asp_rt+" -BWSNE -X0 -Y0 -JX -P -K -O -W1/100 -G150 >>"+fplot+"\n"
                f.write(linesynt)
          else:
-	    logging.error(fdtrace%"%s not found")
+	    logger.error("%s not found"%fdtrace)
    icomp=0
    for comp in usedcomp:
        icomp=icomp+1
@@ -4887,7 +4891,7 @@ def plotDCSolution(inv_step,inv_param,all,best,traces):
 
 
 def plotEikSolution(inv_step,inv_param,all,best,traces):
-   logging.info("Plotting results inversion step %s ..."%inv_step)
+   logger.info("Plotting results inversion step %s ..."%inv_step)
    slat=inv_param['LATITUDE_NORTH']
    slon=inv_param['LONGITUDE_EAST']
    dinv=inv_param['INVERSION_DIR']
@@ -5018,7 +5022,7 @@ def plotEikSolution(inv_step,inv_param,all,best,traces):
 	       north,east,down,alongstrike,downdip,time,alfa,beta,rho=splittedline
                ftime=float(time)
 	       if (int(float(time))==-1):
-	          logging.info("skipped discrete source")
+	          logger.info("skipped discrete source")
 	       else:
   	          if (ftime<discrete_source_tmin):
 	             discrete_source_tmin=ftime
@@ -5046,15 +5050,15 @@ def plotEikSolution(inv_step,inv_param,all,best,traces):
    truesmom=float(inv_param['SCALING_FACTOR'])*float(best[0].smom)
    average_slip_m=calculateAverageSlip(truesmom,area_m2,average_shear_modulus)
    if area_m2<0:
-      logging.warning("WARNING: wrong area value from best_eikonal file: %s"%area_m2)
+      logger.warning("WARNING: wrong area value from best_eikonal file: %s"%area_m2)
       area_m2=calculateArea(inv_param,best[0].depth,best[0].radius,best[0].dip)
-      logging.warning("recalculated to: %s"%area_m2)
+      logger.warning("recalculated to: %s"%area_m2)
    area_km2=area_m2/1000000.
    fixed_shear_modulus=36.e9
    old_average_slip_m=calculateAverageSlip(best[0].smom,area_m2,fixed_shear_modulus)
    if (average_slip_m <> old_average_slip_m):
-      logging.warning("WARNING: old average slip in meters: %s"%old_average_slip_m)
-      logging.warning("         new average slip in meters: %s"%average_slip_m)
+      logger.warning("WARNING: old average slip in meters: %s"%old_average_slip_m)
+      logger.warning("         new average slip in meters: %s"%average_slip_m)
 #  Build rupture plot
    f=open(fcolor,'w')
    if duration <=0.05:
@@ -5196,10 +5200,10 @@ def plotEikSolution(inv_step,inv_param,all,best,traces):
       fbord.close()      
 #     Discretized source (copying to file)
       fdisc=open(fdiscrete,'w')
-      logging.info("DISCRETE_TIME")
-      logging.info("DURATION "+str(duration))
-      logging.info("START    "+str(discrete_source_tmin))
-      logging.info("END      "+str(discrete_source_tmax))
+      logger.info("DISCRETE_TIME")
+      logger.info("DURATION "+str(duration))
+      logger.info("START    "+str(discrete_source_tmin))
+      logger.info("END      "+str(discrete_source_tmax))
       for point_inside in tdsm:       
 #	north=0.001*(float(point_inside.north)-float(center_north))
 #	east=0.001*(float(point_inside.east)-float(center_east))
@@ -5445,7 +5449,7 @@ def plotEikSolution(inv_step,inv_param,all,best,traces):
 	       linesynt="psxy <"+fttrace+" -R"+asp_rt+" -BWSNE -X0 -Y0 -JX -P -K -O -W1/100 -G150 >>"+fplot+"\n"
                f.write(linesynt)
          else:
-	    logging.error(fdtrace+" not found")
+	    logger.error(fdtrace+" not found")
    icomp=0
    for comp in usedcomp:
        icomp=icomp+1
@@ -5605,13 +5609,22 @@ mt_solutions_2,best_mt_solutions_2=[],[]
 start_eikonals,eikonal_solutions_3,best_eikonal_solutions_3=[],[],[]
 
 #######################
-def run_rapidinv(finput):
+def run_rapidinv(finput, logname=None, loglevel=logging.DEBUG):
+    
+    if isinstance(finput, tuple):
+        finput, logname, loglevel = finput
+
+    if logname:
+        logging.basicConfig(filename=logname, level=loglevel)
+    else:
+        logging.basicConfig(level=loglevel)
+
+    #logger=logger.getLogger(logname)
     # Initializing
     time0,year0=getTime()
-    logging.info('Initializing')
-
+    logger.info('Initializing')
     # Read input file, check and prepare inversion parameters
-    logging.info('Read input file, check and prepare inversion parameters')
+    logger.info('Read input file, check and prepare inversion parameters')
     fdefaults,facceptables = 'rapidinv.defaults','rapidinv.acceptables'
     if ( not finput ):
        print "Correct usage: python rapidinv.py <input_filename>"
@@ -5619,7 +5632,7 @@ def run_rapidinv(finput):
     processInvParam(finput,fdefaults,facceptables,inv_param,active_comp,active_chan,comp_names)
 
     # Prepare inversion directory, choose stations, prepare data
-    logging.info('Prepare inversion directory, choose stations, prepare data')
+    logger.info('Prepare inversion directory, choose stations, prepare data')
     inv_step='1'
     apply_taper=checkTaper(inv_param,inv_step)
     prepInvDir(inv_param)
@@ -5632,9 +5645,9 @@ def run_rapidinv(finput):
     if (int(float(inv_param['NUM_INV_STEPS']))>=1) and (int(float(inv_param['NUM_INV_STEPS']))<=3):
        inv_step='1'
        apply_taper=checkTaper(inv_param,inv_step)
-       logging.info('Double couple source inversion (freq domain) - step 1')
+       logger.info('Double couple source inversion (freq domain) - step 1')
        inversionDCsource(inv_step,inv_param,point_solutions_1,best_point_solutions_1,traces,apply_taper)
-       logging.info('Point source inversion (freq domain) - plotting')
+       logger.info('Point source inversion (freq domain) - plotting')
        plotDCSolution(inv_step,inv_param,point_solutions_1,best_point_solutions_1,traces)
     #   print 'Moment tensor inversion (freq domain) - step 1b'
     #   mt_solutions_1.append(point2mt(best_point_solutions_1[0],inv_param,inv_step))
@@ -5644,11 +5657,11 @@ def run_rapidinv(finput):
     time2,year2=getTime()
     if (int(float(inv_param['NUM_INV_STEPS']))>=2) and (int(float(inv_param['NUM_INV_STEPS']))<=3):
        inv_step='2'
-       logging.info('Double couple source inversion (time domain) - step 2')
+       logger.info('Double couple source inversion (time domain) - step 2')
        point_solutions_2.append(best_point_solutions_1[0])
        point_solutions_2.append(best_point_solutions_1[1])
        inversionDCsource(inv_step,inv_param,point_solutions_2,best_point_solutions_2,traces,apply_taper) 
-       logging.info('Point source inversion (time domain) - plotting')
+       logger.info('Point source inversion (time domain) - plotting')
        plotDCSolution(inv_step,inv_param,point_solutions_2,best_point_solutions_2,traces)
     #   print 'Moment tensor source inversion (time domain) - step 2b'
     #   mt_solutions_2.append(best_mt_solutions_1[0])
@@ -5659,19 +5672,19 @@ def run_rapidinv(finput):
     time3,year3=getTime()
     if int(float(inv_param['NUM_INV_STEPS']))==3:
        inv_step='3'
-       logging.info('Eikonal source inversion (time domain) - step 3')
+       logger.info('Eikonal source inversion (time domain) - step 3')
        eikonal_solutions_3.append(point2eikonal(best_point_solutions_2[0],inv_param,inv_step))
        eikonal_solutions_3.append(point2eikonal(best_point_solutions_2[1],inv_param,inv_step))
        inversionEIKsource(inv_step,inv_param,start_eikonals,eikonal_solutions_3,best_eikonal_solutions_3,traces,\
                           apply_taper,best_point_solutions_2)
-       logging.info('Eikonal source inversion (time domain) - plotting')
+       logger.info('Eikonal source inversion (time domain) - plotting')
        plotEikSolution(inv_step,inv_param,eikonal_solutions_3,best_eikonal_solutions_3,traces)
 
     # Clean inversion directory
     # removeLocalDataFiles(inv_param,traces)
     time4,year4=getTime()
     plotDelay(time0,year0,time1,year1,time2,year2,time3,year3,time4,year4)
-    logging.info("Ho finito!")
+    logger.info("Ho finito!")
 
 if __name__=='__main__':
     if len(sys.argv)!=2:
