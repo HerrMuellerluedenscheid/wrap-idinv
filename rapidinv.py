@@ -38,6 +38,7 @@
 
 
 import logging 
+import logging.handlers
 import re
 import sys
 import os
@@ -48,6 +49,7 @@ import math
 import string
 import random
 import numpy
+from optparse import OptionParser
 from datetime import datetime
 from numpy import mean,std,var
 from tunguska.phase import Phase,Timing
@@ -454,7 +456,7 @@ def callTimeCalc(inv_param,phasetyp,phasedep,phasedis):
 	    phasetim=t3*1.75
 	 else:
 	    phasetim=0
-   logger.info("TIME: %s %s %s %s"%(phasetyp,depth,dist,phasetim))
+   logger.info("TIME: %s %s %1.2f %1.2f"%(phasetyp,depth,dist,phasetim))
    return phasetim
 
 
@@ -925,10 +927,9 @@ def checkDataQuality(inv_step,inv_param,traces,freceivers,fdata):
    i=0
    for line in f:
       if re.search('nok',line):
-         logger.info(line)
-         msg = 'ERROR: minimizer internal error (minimizer.out - checkquality)'
-         logger.exception(msg)
-         sys.exit(msg)
+         logger.error(line)
+         logger.error('minimizer internal error (minimizer.out - checkquality)')
+         sys.exit(0)
       else:
          if not re.search('ok',line):
             text.append(line) 
@@ -1965,9 +1966,8 @@ def relMisfitCurves(inv_step,inv_param,point_solutions,best_point_solutions,n_po
    for line in f:
       if re.search('nok',line):
          logger.error(line)
-         errmsg='ERROR: minimizer internal error (minimizer2.out)'
-         logger.error(errmsg)
-         sys.exit(errmsg)
+         logger.error('minimizer internal error (minimizer2.out)')
+         sys.exit(0)
       else:
          if not re.search('ok',line):
             text.append(line)
@@ -1987,22 +1987,27 @@ def relMisfitCurves(inv_step,inv_param,point_solutions,best_point_solutions,n_po
       point_solutions.append(DCsource(inv_step,misfit,rnor,rest,rtim,depth,strike,dip,rake,\
                              smom0,misf_shift,strise))
    n_point_solutions=n_point_solutions+n_new_point_solutions
-   print "final set of point solutions"
+   logger.info("final set of point solutions")
    for point_sol in point_solutions:
-      print point_sol.misfit,point_sol.depth,point_sol.strike,point_sol.dip,point_sol.rake
+      logger.info("%s %s %s %s %s" %(point_sol.misfit,
+                                        point_sol.depth,
+                                        point_sol.strike,
+                                        point_sol.dip,
+                                        point_sol.rake))
 
 
 def analyseResultsDCsource(inv_step,inv_param,point_solutions,n_point_solutions,fminout,\
                            start_point_solutions,lines_singlemisfits):
-   print 'Analysing results inversion step '+inv_step+'...'
+   logger.info('Analysing results inversion step %s ...'%inv_step)
    n_start_solutions=n_point_solutions
    i=0
    f = open (fminout,'r')
    text=[]
    for line in f:
       if re.search('nok',line):
-         print line
-         sys.exit('ERROR: minimizer internal error (minimizer1.out)')
+         logger.error(line)
+         logger.error('minimizer internal error (minimizer1.out)')
+         sys.exit(0)
       else:
          if not re.search('ok',line):
             text.append(line) 
@@ -2047,8 +2052,9 @@ def analyseResultsDCsource(inv_step,inv_param,point_solutions,n_point_solutions,
    f.flush()
    f.close()
    if (n_start_solutions!=n_point_solutions):
-      print n_start_solutions,n_point_solutions
-      sys.exit('ERROR 1: n start sol <> n point sol (minimizer.out)')
+      logger.error("%s %s" % (n_start_solutions,n_point_solutions))
+      logger.error('1: n start sol <> n point sol (minimizer.out)')
+      sys.exit(0)
    for i in range(n_point_solutions):
       if (inv_step == '1'):
          depth=float(start_point_solutions[i].depth)
@@ -2141,7 +2147,8 @@ def analyseResultsDCsource(inv_step,inv_param,point_solutions,n_point_solutions,
                line1=text[i]
                misfit=float(line1)
 	       smom=str(start_point_solutions[i].smom)        
-            print i,depth,smom,strike,dip,rake,misfit
+            logger.info("%s %s %s %s %s %s %s" % (i, depth, smom, strike, dip,
+                                                  rake, misfit))
          omom,ostr,odip,orak=smom,float(strike),float(dip),float(rake)
 	 smom,strike,dip,rake=checkStrDipRak(omom,ostr,odip,orak)
          rnor,rest,time=start_point_solutions[i].rnor,start_point_solutions[i].rest,start_point_solutions[i].time
@@ -2187,15 +2194,16 @@ def analyseResultsDCsource(inv_step,inv_param,point_solutions,n_point_solutions,
 
 
 def analyseResultsMTsource(inv_step,inv_param,mt_solutions,n_mt_solutions,fminout,start_mt_solutions):
-   print 'Analysing results inversion step '+inv_step+'...'
+   logger.info('Analysing results inversion step %s ...'%inv_step)
    n_start_solutions=n_mt_solutions
    i=0
    f = open (fminout,'r')
    text=[]
    for line in f:
       if re.search('nok',line):
-         print line
-         sys.exit('ERROR: minimizer internal error (minimizer1.out)')
+         logger.error(line)
+         logger.error('minimizer internal error (minimizer1.out)')
+         sys.exit(0)
       else:
          if not re.search('ok',line):
             text.append(line) 
@@ -2207,8 +2215,9 @@ def analyseResultsMTsource(inv_step,inv_param,mt_solutions,n_mt_solutions,fminou
    f.flush()
    f.close()
    if (n_start_solutions!=n_mt_solutions):
-      print n_start_solutions,n_mt_solutions
-      sys.exit('ERROR-here: n start sol <> n MT point sol - inv_step'+inv_step)
+      logger.error("%s %s"%(n_start_solutions,n_mt_solutions))
+      logger.error('-here: n start sol <> n MT point sol - inv_step %s'%inv_step)
+      sys.exit(0)
    for i in range(n_mt_solutions):
       time=start_mt_solutions[i].time
       rnor,rest=start_mt_solutions[i].rnor,start_mt_solutions[i].rest
@@ -2231,7 +2240,7 @@ def analyseResultsMTsource(inv_step,inv_param,mt_solutions,n_mt_solutions,fminou
 
 
 def analyseResultsEikonalsource(inv_step,inv_param,eikonals,n_eikonals,fminout,start_eikonals,lines_singlemisfits):
-   print 'Analysing results inversion step '+inv_step+'...'
+   logger.info('Analysing results inversion step %s ...'%inv_step)
    n_start_eikonals=n_eikonals
    i=0
    f = open (fminout,'r')
@@ -2239,11 +2248,12 @@ def analyseResultsEikonalsource(inv_step,inv_param,eikonals,n_eikonals,fminout,s
    for line in f:
       if re.search('nok',line):
          if re.search ('get_global_misfit: nok',line):
-            print line
-	    print 'continue anyway - large misfit given by default'
+            logger.info(line)
+	    logger.info('continue anyway - large misfit given by default')
 	 else:
-            print line
-	    sys.exit('ERROR: minimizer internal error (minimizer1.out)')
+            logger.error(line)
+	    logger.error('minimizer internal error (minimizer1.out)')
+	    sys.exit(0)
       else:
          if not re.search('ok',line):
             if not re.search('nucleation point is outside',line):
@@ -2253,7 +2263,7 @@ def analyseResultsEikonalsource(inv_step,inv_param,eikonals,n_eikonals,fminout,s
 	       text.append(defline)
 	    i=i+1
    if (inv_step == '3'):	    
-      print "lines",i
+      logger.info("lines %s"%i)
       if inv_param['INV_MODE_STEP'+inv_step]=='invert_rnv':
          n_eikonals = int(i/3)
       elif inv_param['INV_MODE_STEP'+inv_step]=='invert_r':
@@ -2264,12 +2274,13 @@ def analyseResultsEikonalsource(inv_step,inv_param,eikonals,n_eikonals,fminout,s
          n_eikonals = int(i/3)
       else:                                    #'grid'
          n_eikonals = int(i/2)
-      print "lines",i,n_eikonals,inv_step,inv_param['INV_MODE_STEP'+inv_step]
+      logger.info("lines %s %s %s %s"%(i, n_eikonals, inv_step, inv_param['INV_MODE_STEP'+inv_step]))
    f.flush()
    f.close()
    if (n_start_eikonals!=n_eikonals):
-      print n_start_eikonals,n_eikonals
-      sys.exit('ERROR 2: n start sol <> n point sol (minimizer.out)')
+      logger.error('%s %s'%(n_start_eikonals,n_eikonals))
+      logger.error('2: n start sol <> n point sol (minimizer.out)')
+      sys.exit(0)
    for i in range(n_eikonals):
       if (inv_step == '3'):
          local_eikonal=start_eikonals[i]
@@ -2303,16 +2314,18 @@ def analyseResultsEikonalsource(inv_step,inv_param,eikonals,n_eikonals,fminout,s
             lines_singlemisfits.append(text[i*2])
 	    misfit=float(text[i*2+1])
             local_eikonal.misfit=misfit
-	 print "EIKO-SOLUTION",i+1,local_eikonal.misfit,\
-	                       local_eikonal.nuklx,local_eikonal.nukly
+	 logger.info("EIKO-SOLUTION %s %s %s %s"%(i+1, local_eikonal.misfit,\
+	                                          local_eikonal.nuklx,\
+                                              local_eikonal.nukly))
 	 eikonals.append(local_eikonal)
 	 iref=len(eikonals)-1
-	 print "EIKO-SOLUTION",i+1,eikonals[iref].misfit,\
-	                       eikonals[iref].nuklx,eikonals[iref].nukly
+	 logger.info("EIKO-SOLUTION %s %s %s %s"%(i+1, eikonals[iref].misfit,\
+	                                          eikonals[iref].nuklx,\
+                                              eikonals[iref].nukly))
 
 
 def calculateDCSynthetics(inv_step,inv_param,point_solutions,traces,apply_taper,freceivers,fdata):
-   print 'Calculating synthetic seismograms...'
+   logger.info('Calculating synthetic seismograms...')
    slat,slon=inv_param['LATITUDE_NORTH'],inv_param['LONGITUDE_EAST']  
    stim0,snor0,sest0=point_solutions[0].time,point_solutions[0].rnor,point_solutions[0].rest
    depth0,smom0=point_solutions[0].depth,point_solutions[0].smom
@@ -2374,7 +2387,7 @@ def calculateDCSynthetics(inv_step,inv_param,point_solutions,traces,apply_taper,
 
 
 def calculateMTSynthetics(inv_step,inv_param,mt_solutions,traces,apply_taper,freceivers,fdata):
-   print 'Calculating synthetic seismograms...'
+   logger.info('Calculating synthetic seismograms...')
    slat,slon=inv_param['LATITUDE_NORTH'],inv_param['LONGITUDE_EAST']  
    stim0,snor0,sest0=mt_solutions[0].time,mt_solutions[0].rnor,mt_solutions[0].rest
    m110,m120,m130=mt_solutions[0].m11,mt_solutions[0].m12,mt_solutions[0].m13
@@ -2437,7 +2450,7 @@ def calculateMTSynthetics(inv_step,inv_param,mt_solutions,traces,apply_taper,fre
 
 
 def calculateEikSynthetics(inv_step,inv_param,eikonals,traces,apply_taper,freceivers,fdata,mohodepth):
-   print 'Calculating synthetic seismograms...'
+   logger.info('Calculating synthetic seismograms...')
    stype='eikonal'
    slat,slon=inv_param['LATITUDE_NORTH'],inv_param['LONGITUDE_EAST']  
    stim,snor,sest=str(eikonals[0].time),str(eikonals[0].rnor),str(eikonals[0].rest)
@@ -2521,8 +2534,9 @@ def getCrustalDepth(inv_param):
    i=0
    for line in f:
       if re.search('nok',line):
-         print line
-         sys.exit('ERROR: minimizer internal error ('+fminout+')')
+         logger.error(line)
+         logger.error('minimizer internal error (%s)' % fminout)
+         sys.exit(0)
       else:
          if not re.search('ok',line):
             text.append(line)
@@ -2530,7 +2544,7 @@ def getCrustalDepth(inv_param):
    f.flush()
    f.close()
    if (i<>1):
-      print i,'1'
+      logger.info(str(i)+'1')
       sys.exit('ERROR 3: n start sol <> n point sol ('+fminout+')')
    mohodepth=float(text[0])
    return mohodepth   
@@ -2676,7 +2690,7 @@ def prepMinimizerInputDCsource(inv_step,fmininp,fminout,inv_param,freceivers,\
                f.write("minimize_lm\n")
                f.write("get_source_subparams\n")	    
             else:                                    #'grid'
-	       print "grid ",i,sdep,smom,sstr,sdip,srak
+	       logger.info("grid %s %s %s %s %s %s"%(i, sdep, smom, sstr, sdip, srak))
             f.write("get_global_misfit\n")
             i=i+1
          elif (inv_step == '2'):
@@ -2702,7 +2716,7 @@ def prepMinimizerInputDCsource(inv_step,fmininp,fminout,inv_param,freceivers,\
                f.write("minimize_lm\n")
                f.write("get_source_subparams\n")	    
             else:                                    #'grid'
-	       print "grid ",i,stim,snor,sest,sdep,smom
+	       logger.info("grid %s %s %s %s %s %s"%(i,stim,snor,sest,sdep,smom))
                f.write("get_misfits\n")
             f.write("get_global_misfit\n")
 	    i=i+1
@@ -2731,10 +2745,10 @@ def prepMinimizerInputMTsource(inv_step,fmininp,fminout,inv_param,freceivers,\
    ccshift1,ccshift2=inv_param['CC_SHIFT1'],inv_param['CC_SHIFT2']
    i=0
    prevdepth='-1'
-   print "length of starting solutions ",len(start_mt_solutions)
+   logger.info("length of starting solutions %s"%(len(start_mt_solutions)))
    for startsol in start_mt_solutions:   
-      print "start_solution ",str(startsol.m11),str(startsol.m12),str(startsol.m13),\
-                              str(startsol.m22),str(startsol.m23),str(startsol.m33)
+      logger.info("start_solution %s %s %s %s %s %s"%(startsol.m11,startsol.m12,startsol.m13,\
+                                                      startsol.m22,startsol.m23,startsol.m33))
       sdep=str(startsol.depth)
       stim,snor,sest=str(startsol.time),str(startsol.rnor),str(startsol.rest)
       sm11,sm12,sm13=str(startsol.m11),str(startsol.m12),str(startsol.m13)
@@ -2842,11 +2856,11 @@ def prepMinimizerInputEikonalsource(inv_step,fmininp,fminout,inv_param,freceiver
             f.write("minimize_lm\n")
             f.write("get_source_subparams\n")	    
          elif inv_param['INV_MODE_STEP'+inv_step]=='ccgrid':
-	    print "grid ",i,sstr,srad,snukx,snuky,srrv         
+	    logger.info("grid %s %s %s %s %s %s"%(i,sstr,srad,snukx,snuky,srrv))
 #010610	    f.write("autoshift_ref_seismogram 0 "+ccshift1+" "+ccshift2+" \n")
             f.write("get_misfits \n")   
 	 else:                                    #'grid'
-	    print "grid ",i,sstr,srad,snukx,snuky,srrv         
+	    logger.info("grid %s %s %s %s %s %s"%(i,sstr,srad,snukx,snuky,srrv))
             f.write("get_misfits \n")   
          f.write("get_global_misfit\n")
          i=i+1
@@ -2914,14 +2928,15 @@ def compareBestDCSourceInTime(inv_step,point_solutions,inv_param,freceivers,fdat
    i=0
    for line in f:
       if re.search('nok',line):
-         print line
-         sys.exit('ERROR: minimizer internal error ('+minout+')')
+         logger.error(line)
+         logger.error('minimizer internal error (%s)'%minout)
+         sys.exit(0)
       else:
          if not re.search('ok',line):
             text.append(line)
 	    i=i+1 
    if (i<>4):
-      print i,'2'
+      logger.info(str(i)+'2')
       sys.exit('ERROR 4: n start sol <> n point sol ('+minout+')')
    for isol in range(2):
       point_solutions[isol].misfit=99999.  
@@ -3025,8 +3040,9 @@ def calcDuration(inv_step,inv_param,bests,apply_taper,fdata,freceivers):
    i=0
    for line in f:
       if re.search('nok',line):
-         print line
-         sys.exit('ERROR: minimizer internal error ('+minout+')')
+         logger.error(line)
+         logger.error('minimizer internal error (%s)'%minout)
+         sys.exit(0)
       else:
          if not re.search('ok',line):
             text.append(line)
@@ -3038,8 +3054,9 @@ def calcDuration(inv_step,inv_param,bests,apply_taper,fdata,freceivers):
    else:
       iexpected=len(checkedrisetimes)
    if (i<>iexpected):
-      print i,iexpected
-      sys.exit('ERROR: wrong number of solutions ('+minout+')')
+      logger.error("i=%s expected %s"%(i,iexpected))
+      logger.error('wrong number of solutions (%s)' % minout)
+      sys.exit(0)
    risetimes=[]
    nrisetimes=len(checkedrisetimes)
    for iris in range(nrisetimes):
@@ -3129,16 +3146,16 @@ def calcDuration(inv_step,inv_param,bests,apply_taper,fdata,freceivers):
       m8,q8=numpy.linalg.lstsq(a8,y8)[0]
       m9,q9=numpy.linalg.lstsq(a9,y9)[0]
       m10,q10=numpy.linalg.lstsq(a10,y10)[0]
-      print "mq1",m1,q1	 
-      print "mq2",m2,q2	 
-      print "mq3",m3,q3	 
-      print "mq4",m4,q4	 
-      print "mq5",m5,q5 
-      print "mq6",m6,q6	 
-      print "mq3",m7,q7	 
-      print "mq4",m8,q8	 
-      print "mq5",m9,q9 
-      print "mq6",m10,q10	 
+      logger.info("mq1 %s %s"%(m1,q1))
+      logger.info("mq2 %s %s"%(m2,q2))
+      logger.info("mq3 %s %s"%(m3,q3))
+      logger.info("mq4 %s %s"%(m4,q4))
+      logger.info("mq5 %s %s"%(m5,q5))
+      logger.info("mq6 %s %s"%(m6,q6))
+      logger.info("mq3 %s %s"%(m7,q7))
+      logger.info("mq4 %s %s"%(m8,q8))
+      logger.info("mq5 %s %s"%(m9,q9))
+      logger.info("mq6 %s %s"%(m10,q10))
       average_apparentrisetime=mean(risetimesonly)
       stdev_apparentrisetime=std(risetimesonly)
       min_apparentrisetime,max_apparentrisetime=confidenceInterval(risetimesonly,inv_param)
@@ -3182,16 +3199,16 @@ def calcDuration(inv_step,inv_param,bests,apply_taper,fdata,freceivers):
          misfx8=misfx8+(appdur-(m8*(-math.cos(anglerad8))+q8))**2
          misfx9=misfx9+(appdur-(m9*(-math.cos(anglerad9))+q9))**2
          misfx10=misfx10+(appdur-(m10*(-math.cos(anglerad10))+q10))**2
-	 print "CHECK  ",-math.cos(anglerad1),-math.cos(anglerad2)
-	 print "CHECK-AVERAGE",appdur,average_apparentrisetime,anglegra,misfav
-	 print "CHECK-STRIKE1",appdur,m1,q1,(m1*(-math.cos(anglerad1))+q1),anglegra,misfx1
-	 print "CHECK-STRIKE2",appdur,m2,q2,(m2*(-math.cos(anglerad2))+q2),anglegra,misfx2
-	 print "CHECK-DIP1   ",appdur,m3,q3,(m3*(-math.cos(anglerad3))+q3),anglegra,misfx3
-	 print "CHECK-DIP2   ",appdur,m4,q4,(m4*(-math.cos(anglerad4))+q4),anglegra,misfx4
-#	 print "CHECK-BILSTR1   ",appdur,m5,q5,(m5*(math.cos(2*anglerad5))+q5),anglegra,misfx5
-#	 print "CHECK-BILSTR2   ",appdur,m6,q6,(m6*(math.cos(2*anglerad6))+q6),anglegra,misfx6
-	 print "CHECK-BILSTR1   ",appdur,m5,q5,(m5*abs(math.cos(anglerad5))+q5),anglegra,misfx5
-	 print "CHECK-BILSTR2   ",appdur,m6,q6,(m6*abs(math.cos(anglerad6))+q6),anglegra,misfx6
+	 logger.info("CHECK %s %s "%(-math.cos(anglerad1),-math.cos(anglerad2)))
+	 logger.info("CHECK-AVERAGE %s %s %s %s"%(appdur,average_apparentrisetime,anglegra,misfav))
+	 logger.info("CHECK-STRIKE1 %s %s %s %s %s %s"%(appdur,m1,q1,(m1*(-math.cos(anglerad1))+q1),anglegra,misfx1))
+	 logger.info("CHECK-STRIKE2 %s %s %s %s %s %s"%(appdur,m2,q2,(m2*(-math.cos(anglerad2))+q2),anglegra,misfx2))
+	 logger.info("CHECK-DIP1    %s %s %s %s %s %s"%(appdur,m3,q3,(m3*(-math.cos(anglerad3))+q3),anglegra,misfx3))
+	 logger.info("CHECK-DIP2    %s %s %s %s %s %s"%(appdur,m4,q4,(m4*(-math.cos(anglerad4))+q4),anglegra,misfx4))
+#	 logger.info("CHECK-BILSTR1 %s %s %s %s %s %s"%(appdur,m5,q5,(m5*(math.cos(2*anglerad5))+q5),anglegra,misfx5))
+#	 logger.info("CHECK-BILSTR2 %s %s %s %s %s %s"%(appdur,m6,q6,(m6*(math.cos(2*anglerad6))+q6),anglegra,misfx6))
+	 logger.info("CHECK-BILSTR1 %s %s %s %s %s %s"%(appdur,m5,q5,(m5*abs(math.cos(anglerad5))+q5),anglegra,misfx5))
+	 logger.info("CHECK-BILSTR2 %s %s %s %s %s %s"%(appdur,m6,q6,(m6*abs(math.cos(anglerad6))+q6),anglegra,misfx6))
 	 irec=irec+1
 #      misfx=min(misfx1,misfx2,misfx3,misfx4,misfx5,misfx6,misfx7,misfx8,misfx9,misfx10)
       if (bests[0].dip<30) and (bests[1].dip<30):
@@ -3206,52 +3223,52 @@ def calcDuration(inv_step,inv_param,bests,apply_taper,fdata,freceivers):
          ftest=(misfav-misfx1)/(misfx1/(len(ll)-2))	 
          mm=m1
 	 qq=q1
-	 print "MISFIT 1 CHOSEN",ftest
+	 logger.info("MISFIT 1 CHOSEN %s"%ftest)
       elif misfx==misfx2:
          ftest=(misfav-misfx2)/(misfx2/(len(ll)-2))	 
          mm=m2
 	 qq=q2
-	 print "MISFIT 2 CHOSEN",ftest
+	 logger.info("MISFIT 2 CHOSEN %s"%ftest)
       elif misfx==misfx3:
          ftest=(misfav-misfx3)/(misfx3/(len(ll)-2))	 
          mm=m3
 	 qq=q3
-	 print "MISFIT 3 CHOSEN",ftest
+	 logger.info("MISFIT 3 CHOSEN %s"%ftest)
       elif misfx==misfx4:
          ftest=(misfav-misfx4)/(misfx4/(len(ll)-2))	 
          mm=m4
 	 qq=q4
-	 print "MISFIT 4 CHOSEN",ftest
+	 logger.info("MISFIT 4 CHOSEN %s"%ftest)
       elif misfx==misfx5:
          ftest=(misfav-misfx5)/(misfx5/(len(ll)-2))	 
          mm=m5
 	 qq=q5
-	 print "MISFIT 5 CHOSEN",ftest
+	 logger.info("MISFIT 5 CHOSEN %s"%ftest)
       elif misfx==misfx6:
          ftest=(misfav-misfx6)/(misfx6/(len(ll)-2))	 
          mm=m6
 	 qq=q6
-	 print "MISFIT 6 CHOSEN",ftest
+	 logger.info("MISFIT 6 CHOSEN %s"%ftest)
       elif misfx==misfx7:
          ftest=(misfav-misfx7)/(misfx7/(len(ll)-2))	 
          mm=m7
 	 qq=q7
-	 print "MISFIT 7 CHOSEN",ftest
+	 logger.info("MISFIT 7 CHOSEN %s"%ftest)
       elif misfx==misfx8:
          ftest=(misfav-misfx8)/(misfx8/(len(ll)-2))	 
          mm=m8
 	 qq=q8
-	 print "MISFIT 8 CHOSEN",ftest
+	 logger.info("MISFIT 8 CHOSEN %s"%ftest)
       elif misfx==misfx9:
          ftest=(misfav-misfx9)/(misfx9/(len(ll)-2))	 
          mm=m9
 	 qq=q9
-	 print "MISFIT 9 CHOSEN",ftest
+	 logger.info("MISFIT 9 CHOSEN %s"%ftest)
       else:
          ftest=(misfav-misfx10)/(misfx10/(len(ll)-2))	 
          mm=m10
 	 qq=q10
-	 print "MISFIT 10 CHOSEN",ftest
+	 logger.info("MISFIT 10 CHOSEN %s"%ftest)
 #      if ftest<=0.05:
 #         mm,qq=0.,average_apparentrisetime
       f3.write("AVERAGE "+str(average_apparentrisetime)+"\n")   
@@ -3375,14 +3392,15 @@ def compareBestMTSourceInTime(inv_step,mt_solutions,inv_param,freceivers,fdata):
    i=0
    for line in f:
       if re.search('nok',line):
-         print line
-         sys.exit('ERROR: minimizer internal error ('+minout+')')
+         logger.error(line)
+         logger.error('minimizer internal error (%s)'%minout)
+         sys.exit(0)
       else:
          if not re.search('ok',line):
             text.append(line)
 	    i=i+1 
    if (i<>4):
-      print i,'2'
+      logger.info(str(i)+'2')
       sys.exit('ERROR 5: n start sol <> n point sol ('+minout+')')
    for isol in range(2):
       mt_solutions[isol].misfit=99999.  
@@ -3478,7 +3496,7 @@ def runBootstrapStep1(inv_step,inv_param,point_solutions,n_point_solutions,minou
    line_mf=line_mf+inv_param['BP_F3_STEP'+inv_step]+" 1 "+inv_param['BP_F4_STEP'+inv_step]+" 0\n"
    f.write(line_mm)
    f.write(line_mf)  
-   print "LOOP DEPTH"
+   logger.info("LOOP DEPTH")
    if apply_taper:
       for trace in traces:
          taper=getWindowsTaper(trace.comp,refdepthkm,trace.dist,inv_param,inv_step)
@@ -3489,20 +3507,21 @@ def runBootstrapStep1(inv_step,inv_param,point_solutions,n_point_solutions,minou
              str(bootptsolutions1[ib].rake)+" 0 0 0 0 "+inv_param['RADIUS0']+" "+strise+"\n"
       f.write(line)
       f.write("get_misfits\n")  
-      print str(bootptsolutions1[ib].depth)+" "+str(bootptsolutions1[ib].smom)+" "+\
+      logger.info(str(bootptsolutions1[ib].depth)+" "+str(bootptsolutions1[ib].smom)+" "+\
             str(bootptsolutions1[ib].strike)+" "+str(bootptsolutions1[ib].dip)+" "+\
-	    str(bootptsolutions1[ib].rake)
+	    str(bootptsolutions1[ib].rake))
    f.flush()
    f.close()
-   print "Calling minimizer",fmininp
+   logger.info("Calling minimizer %s"%fmininp)
    cmd = 'minimizer < '+fmininp+' > '+fminout
    os.system(cmd)
    i=0
    f = open (fminout,'r')
    for line in f:
       if re.search('nok',line):
-         print line
-         sys.exit('ERROR: minimizer internal error (minimizer2.out)')
+         logger.error(line)
+         logger.error('minimizer internal error (minimizer2.out)')
+         sys.exit(0)
       else:
          if not re.search('ok',line):
             lines_localmisfits1.append(line)
@@ -3594,7 +3613,7 @@ def runBootstrapStep1(inv_step,inv_param,point_solutions,n_point_solutions,minou
    line_mf=line_mf+inv_param['BP_F3_STEP'+inv_step]+" 1 "+inv_param['BP_F4_STEP'+inv_step]+" 0\n"
    f.write(line_mm)
    f.write(line_mf)  
-   print "LOOP MOM"
+   logger.info("LOOP MOM")
    if apply_taper:
       for trace in traces:
          taper=getWindowsTaper(trace.comp,refdepthkm,trace.dist,inv_param,inv_step)
@@ -3605,20 +3624,21 @@ def runBootstrapStep1(inv_step,inv_param,point_solutions,n_point_solutions,minou
              str(bootptsolutions1[ib].rake)+" 0 0 0 0 "+inv_param['RADIUS0']+" "+strise+"\n"
       f.write(line)
       f.write("get_misfits\n")  
-      print str(bootptsolutions1[ib].depth)+" "+str(bootptsolutions1[ib].smom)+" "+\
+      logger.info(str(bootptsolutions1[ib].depth)+" "+str(bootptsolutions1[ib].smom)+" "+\
             str(bootptsolutions1[ib].strike)+" "+str(bootptsolutions1[ib].dip)+" "+\
-	    str(bootptsolutions1[ib].rake)
+	    str(bootptsolutions1[ib].rake))
    f.flush()
    f.close()
-   print "Calling minimizer",fmininp
+   logger.info("Calling minimizer %s"%fmininp)
    cmd = 'minimizer < '+fmininp+' > '+fminout
    os.system(cmd)
    i=0
    f = open (fminout,'r')
    for line in f:
       if re.search('nok',line):
-         print line
-         sys.exit('ERROR: minimizer internal error (minimizer2.out)')
+         logger.error(line)
+         logger.error('minimizer internal error (minimizer2.out)')
+         sys.exit(0)
       else:
          if not re.search('ok',line):
             lines_localmisfits1.append(line)
@@ -3708,7 +3728,7 @@ def runBootstrapStep1(inv_step,inv_param,point_solutions,n_point_solutions,minou
    line_mf=line_mf+inv_param['BP_F3_STEP'+inv_step]+" 1 "+inv_param['BP_F4_STEP'+inv_step]+" 0\n"
    f.write(line_mm)
    f.write(line_mf)  
-   print "LOOP SDS"
+   logger.info("LOOP SDS")
    if apply_taper:
       for trace in traces:
          taper=getWindowsTaper(trace.comp,refdepthkm,trace.dist,inv_param,inv_step)
@@ -3720,20 +3740,21 @@ def runBootstrapStep1(inv_step,inv_param,point_solutions,n_point_solutions,minou
              str(bootptsolutions2[ib].rake)+" 0 0 0 0 "+inv_param['RADIUS0']+" "+strise+"\n"
       f.write(line)
       f.write("get_misfits\n")  
-      print str(bootptsolutions2[ib].depth)+" "+str(bootptsolutions2[ib].smom)+" "+\
+      logger.info(str(bootptsolutions2[ib].depth)+" "+str(bootptsolutions2[ib].smom)+" "+\
             str(bootptsolutions2[ib].strike)+" "+str(bootptsolutions2[ib].dip)+" "+\
-	    str(bootptsolutions2[ib].rake)
+	    str(bootptsolutions2[ib].rake))
    f.flush()
    f.close()
-   print "Calling minimizer",fmininp
+   logger.info("Calling minimizer %s"%fmininp)
    cmd = 'minimizer < '+fmininp+' > '+fminout
    os.system(cmd)
    i=0
    f = open (fminout,'r')
    for line in f:
       if re.search('nok',line):
-         print line
-         sys.exit('ERROR: minimizer internal error (minimizer2.out)')
+         logger.error(line)
+         logger.error('minimizer internal error (minimizer2.out)')
+         sys.exit('0')
       else:
          if not re.search('ok',line):
             lines_localmisfits2.append(line)
@@ -3761,7 +3782,11 @@ def runBootstrapStep1(inv_step,inv_param,point_solutions,n_point_solutions,minou
          localptsolutions2.append(localptsolution)
 #	 isol=isol+1
 	 if iboot==0:
-	    print iboot,"SOL",isol,localptsolution.strike,localptsolution.dip,localptsolution.rake,localmisfit
+	    logger.info("%s %s %s %s %s %s %s"%(iboot,"SOL",isol,\
+                                         localptsolution.strike,\
+                                         localptsolution.dip,\
+                                         localptsolution.rake,\
+                                         localmisfit))
       localptsolutions2.sort(key=operator.attrgetter('misfit'))
 #      print "BESTSOL",localptsolutions2[0].misfit,localptsolutions2[0].strike,\
 #                      localptsolutions2[0].dip,localptsolutions2[0].rake
@@ -3788,7 +3813,7 @@ def runBootstrapStep1(inv_step,inv_param,point_solutions,n_point_solutions,minou
       if locsds not in probsds:
          probsds.append(locsds)
    for checksds in testedsdss:
-      print "CHECK ",checksds
+      logger.info("CHECK %s"%checksds)
       iprob=0     
       for ib in range(len(localbestptsolutions2)):
 	 if (checksds.strike==localbestptsolutions2[ib].strike) and \
@@ -3847,19 +3872,20 @@ def inversionDCsource(inv_step,inv_param,point_solutions,best_point_solutions,tr
       freceivers=os.path.join(inv_param['INVERSION_DIR'],'stations.table.mec')
    fdata=os.path.join(inv_param['INVERSION_DIR'],inv_param['DATA_FILE'])
    if (inv_step == '1'):
-      print 'Inversion step 1'
+      logger.info('Inversion step 1')
       n_local_loops=int(inv_param['LOOPS_SDS_CONF'])
    elif (inv_step == '2'):
-      print 'Inversion step 2'
+      logger.info('Inversion step 2')
       compareBestDCSourceInTime(inv_step,point_solutions,inv_param,freceivers,fdata, apply_taper)
       n_local_loops=int(inv_param['LOOPS_LOC_CONF'])
    else:
-      sys.exit("ERROR: something went wrong with the starting configurations, "+inv_step)
+      logger.error("something went wrong with the starting configurations, %s"%inv_step)
+      sys.exit(0)
 #  Define first grid walk
    start_point_solutions=[]   
    defineGridWalkDCsource(inv_step,start_point_solutions,point_solutions,inv_param)
 #  Prepare point source inversion, looping over starting configurations
-   print 'sss ',len(start_point_solutions)
+   logger.info('sss %s'%len(start_point_solutions))
    for iloop in range(n_local_loops): 
       irun=iloop+1
       mininp=os.path.join(inv_param['INVERSION_DIR'],'minimizer.inp'+inv_step+'-run'+str(irun))
@@ -3867,7 +3893,7 @@ def inversionDCsource(inv_step,inv_param,point_solutions,best_point_solutions,tr
       prepMinimizerInputDCsource(inv_step,mininp,minout,inv_param,freceivers,fdata,\
                                     apply_taper,irun,start_point_solutions)
       n_point_solutions = len(start_point_solutions) 
-      print 'check',irun,n_point_solutions     
+      logger.info('check %s %s' % (irun, n_point_solutions))
 #  Calling minimizer for point source inversion
       if inv_param['NUM_PROCESSORS']=='1':
          callMinimizer(mininp,minout)
@@ -3921,9 +3947,9 @@ def inversionMTsource(inv_step,inv_param,mt_solutions,best_mt_solutions,traces,a
    freceivers=os.path.join(inv_param['INVERSION_DIR'],'stations.table')
    fdata=os.path.join(inv_param['INVERSION_DIR'],inv_param['DATA_FILE'])
    if (inv_step == '1'):
-      print 'Inversion step 1b'
+      logger.info('Inversion step 1b')
    elif (inv_step == '2'):
-      print 'Inversion step 2b'
+      logger.info('Inversion step 2b')
       compareBestMTSourceInTime(inv_step,mt_solutions,inv_param,freceivers,fdata)
    else:
       sys.exit("ERROR: something went wrong with the starting configurations, "+inv_step)
@@ -3954,7 +3980,7 @@ def inversionMTsource(inv_step,inv_param,mt_solutions,best_mt_solutions,traces,a
 
 def findUnfittingStations(inv_step,inv_param,eikonals,traces,apply_taper,best_point,mohodepth):
    if (inv_step == '3'):
-      print 'Choosing good fitting stations only!'
+      logger.info('Choosing good fitting stations only!')
    else:
       sys.exit("ERROR: something went wrong with station fit evaluation procedure, "+inv_step) 
    comp_inv_step=inv_param['ST_GOODSTATIONS']
@@ -4003,21 +4029,21 @@ def findUnfittingStations(inv_step,inv_param,eikonals,traces,apply_taper,best_po
    f.flush()
    f.close()
 #  Call minimizer
-   print "call minimizer here"
+   logger.info("call minimizer here")
    callMinimizer(fmininp,fminout)   
 #  Analyze minimizer results   
-   print 'Analysing stations fit, before '+inv_step+'...'
+   logger.info('Analysing stations fit, before %s ...'%inv_step)
    i=0
    f = open (fminout,'r')
    text=[]
    for line in f:      
       if re.search('nok',line):
          if re.search ('get_global_misfit: nok',line):
-            print line
-	    print 'continue anyway - large misfit given by default'
-	 else:
-            print line
-	    sys.exit('ERROR: minimizer internal error (minimizer1.out)')
+            logger.info(line)
+            logger.info('continue anyway - large misfit given by default')
+         else:
+            logger.error('minimizer internal error (minimizer1.out)')
+            sys.exit(0)
       else:
          if not re.search('ok',line):
             if not re.search('nucleation point is outside',line):
@@ -4084,12 +4110,14 @@ def runBootstrapStep2(inv_step,inv_param,point_solutions,n_point_solutions,minou
    if (inv_step == '2'):
       logger.info('Bootstrap inversion step 2')
    else:
-      sys.exit("ERROR: something went wrong with the bootstrap, "+inv_step)
+      logger.error("something went wrong with the bootstrap %s"%inv_step)
+      sys.exit(0);
    n_solutions_to_check=len(ptsolutions)
    if len(lines_singlemisfits) <> n_solutions_to_check:
       logger.error("inconsistent number of lines %s %s"%(len(lines_singlemisfits),len(ptsolutions)))
       logger.error("%s %s"%(len(lines_singlemisfits),len(ptsolutions)))
-      sys.exit("ERROR: runDCBootstrap failed, step "+inv_step)
+      logger.error("runDCBootstrap failed, step %s"%inv_step)
+      sys.exit(0)
    
    testedcentroids=[]   
    bestmisfit=99999.
@@ -4102,7 +4130,8 @@ def runBootstrapStep2(inv_step,inv_param,point_solutions,n_point_solutions,minou
 	 refeast=float(pointsolution.rest)
 	 reftime=float(pointsolution.time)
    if bestmisfit==99999:
-      sys.exit("ERROR: runDCBootstrap failed with large misfit, step "+inv_step)   
+      logger.error("runDCBootstrap failed with large misfit, step %s"%inv_step)   
+      sys.exit(0)
    localbestptsolutions=[]
    firstlinecomp=lines_singlemisfits[0]
    firstline=firstlinecomp.split()
@@ -4180,7 +4209,8 @@ def runEIKBootstrap(inv_step,result_eikonals,n_eikonals,eikonals,lines_singlemis
       sys.exit("ERROR: something went wrong with the bootstrap, "+inv_step)
    if len(lines_singlemisfits) <> len(eikonals):
       logger.error("inconsistent number of lines %s %s"%(len(lines_singlemisfits),len(eikonals)))
-      sys.exit("ERROR: runEIKBootstrap failed")
+      logger.error("runEIKBootstrap failed")
+      sys.exit(0)
 
    bestmisfit1=99999.
    for eiksolution in result_eikonals:
@@ -4360,10 +4390,10 @@ def inversionEIKsource(inv_step,inv_param,start_eikonals,eikonals,best_eikonals,
    logger.info('STARTING EIKONALS %s'%len(start_eikonals))
    for eikonal in start_eikonals:
       logger.info('%s %s %s %s %s %s %s'%(eikonal.strike,eikonal.dip,eikonal.rake,\
-            eikonal.nuklx,eikonal.nukly,eikonal.radius,eikonal.relruptvel)
+            eikonal.nuklx,eikonal.nukly,eikonal.radius,eikonal.relruptvel))
 
 #  Prepare eikonal source inversion, looping over starting configurations
-   logger.info('number of eikonal starting sources %s '%len(start_eikonals))
+   logger.info('number of eikonal starting sources %s '%(len(start_eikonals)))
    for iloop in range(n_local_loops): 
       irun=iloop+1
       mininp=os.path.join(inv_param['INVERSION_DIR'],'minimizer.inp'+inv_step+'-run'+str(irun))
@@ -5609,17 +5639,19 @@ mt_solutions_2,best_mt_solutions_2=[],[]
 start_eikonals,eikonal_solutions_3,best_eikonal_solutions_3=[],[],[]
 
 #######################
-def run_rapidinv(finput, logname=None, loglevel=logging.DEBUG):
+def run_rapidinv(finput, logfilename=None, loglevel=logging.DEBUG):
     
     if isinstance(finput, tuple):
-        finput, logname, loglevel = finput
+        # needed to pass all arguments as one tuple in multiprocessing
+        finput, logfilename, loglevel = finput
+        handler = logging.handlers.RotatingFileHandler(logfilename)
+        logger.addHandler(handler)
 
-    if logname:
-        logging.basicConfig(filename=logname, level=loglevel)
+    if logfilename:
+        logging.basicConfig(filename=logfilename, level=loglevel)
     else:
         logging.basicConfig(level=loglevel)
 
-    #logger=logger.getLogger(logname)
     # Initializing
     time0,year0=getTime()
     logger.info('Initializing')
@@ -5627,8 +5659,8 @@ def run_rapidinv(finput, logname=None, loglevel=logging.DEBUG):
     logger.info('Read input file, check and prepare inversion parameters')
     fdefaults,facceptables = 'rapidinv.defaults','rapidinv.acceptables'
     if ( not finput ):
-       print "Correct usage: python rapidinv.py <input_filename>"
-       sys.exit("ERROR: Wrong input file name")
+       logger.error("Correct usage: python rapidinv.py <input_filename>")
+       sys.exit(0)
     processInvParam(finput,fdefaults,facceptables,inv_param,active_comp,active_chan,comp_names)
 
     # Prepare inversion directory, choose stations, prepare data
@@ -5687,7 +5719,24 @@ def run_rapidinv(finput, logname=None, loglevel=logging.DEBUG):
     logger.info("Ho finito!")
 
 if __name__=='__main__':
-    if len(sys.argv)!=2:
-        print "USAGE: python rapidinv <input script>"
-        sys.exit(0)
-    run_rapidinv(sys.argv[1])
+    #if len(sys.argv)!=2:
+    #    print "USAGE: python rapidinv <input script>"
+    #    sys.exit(0)
+    
+    parser = OptionParser(usage="usage: %prog [options] filename")
+    parser.add_option("--log-level",
+                      dest="loglevel",
+                      default=logging.DEBUG,
+                      help="for possible logging levels see https://docs.python.org/2/library/logging.html ")
+
+    parser.add_option("--log-file",
+                      dest="logfilename",
+                      default=None,
+                      help="which file should logging infos be written to")
+
+    (options, args) = parser.parse_args()
+    if len(args)!=1:
+        sys.exit(parser.print_help())
+    run_rapidinv(args[0],
+                 loglevel=options.loglevel,
+                 logfilename=options.logfilename)
