@@ -9,10 +9,30 @@ from pyrocko import io
 from pyrocko import model
 from pyrocko import util
 from rapidinv import run_rapidinv
-from gfdb import GFDB
+#from gfdb import GFDB
+
+from tunguska.gfdb import GFDB
 
 mkdir = os.mkdir
         
+class MyGFDB(GFDB):
+    def __init__(self, *args, **kwargs):
+        GFDB.__init__(self, *args, **kwargs)
+        self.maxdist = self.firstx + self.dx*(self.nx-1)
+        self.maxdepth = self.firstz + self.dx(self.nz-1)
+
+    def out_of_bounds(self, event, station):
+        dist = event.distance_to(station)
+        return dist<self.firstx or dist>self.maxdist or event.depth<self.firstz or event.depth>self.maxdepth
+
+    def adjust_sampling_rates(self, traces):
+        """Equalize sampling rates of all traces according to gfdb"""
+        for tr in traces:
+            tr.downsample_to(self.dt)
+
+    @classmethod
+    def from_config(cls, config):
+        return cls.__init__(gfdbpath=config['GFDB_STEP1'])
 
 def make_sane_directories(directory, force):
     if os.path.exists(directory):
@@ -114,7 +134,7 @@ class MultiEventInversion():
     def __init__(self, config, reader):
         self.config = config
         self.reader = reader
-        self.gfdb = GFDB.from_config(config)
+        self.gfdb = MyGFDB.from_config(config)
         self.inversions = []
 
     def prepare(self, force=False, num_inversions=99999999):
@@ -165,7 +185,10 @@ class MultiEventInversion():
             file_paths.append(inv.get_execute_filename())
             log_file_paths.append(inv.get_log_filename())
         log_levels = [log_level]*len(self.inversions)
-        p.map(run_rapidinv, zip(file_paths, log_file_paths, log_levels))
+        args = zip(file_paths, log_file_paths, log_levels)
+        import pdb 
+        pdb.set_trace()
+        p.map(run_rapidinv, args)
         p.close()
         p.join()
 

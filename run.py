@@ -1,3 +1,4 @@
+#/usr/bin/env python
 import logging
 import os
 import sys
@@ -14,7 +15,8 @@ if __name__ == '__main__':
     logging.info("start-logging")
     webnet = os.environ['WEBNET']
     r = Reader(webnet,
-               data='mseed/2008/*/*',
+               #data='mseed/2008/*/*',
+               data='scaled/2008Oct/*',
                events='catalog/intern/Oct2008_events.pf', 
                phases='catalog/intern/Oct2008_phases.pf')
     r.start()
@@ -28,5 +30,5 @@ if __name__ == '__main__':
     inversion.prepare(force=True,
                       num_inversions=3)
 
-    inversion.run_all(ncpus=1)
+    inversion.run_all(ncpus=2)
     logging.info('finished')

@@ -5719,9 +5719,6 @@ def run_rapidinv(finput, logfilename=None, loglevel=logging.DEBUG):
     logger.info("Ho finito!")
 
 if __name__=='__main__':
-    #if len(sys.argv)!=2:
-    #    print "USAGE: python rapidinv <input script>"
-    #    sys.exit(0)
     
     parser = OptionParser(usage="usage: %prog [options] filename")
     parser.add_option("--log-level",
