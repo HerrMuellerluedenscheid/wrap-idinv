@@ -8,31 +8,42 @@ from pyrocko.util import time_to_str
 from pyrocko import io
 from pyrocko import model
 from pyrocko import util
+from pyrocko import orthodrome
 from rapidinv import run_rapidinv
 #from gfdb import GFDB
 
-from tunguska.gfdb import GFDB
+from tunguska import gfdb
 
 mkdir = os.mkdir
         
-class MyGFDB(GFDB):
+class MyGFDB(gfdb.Gfdb):
     def __init__(self, *args, **kwargs):
-        GFDB.__init__(self, *args, **kwargs)
+        try:
+            self.config = kwargs.pop('config')
+        except KeyError:
+            self.config = None
+        gfdb.Gfdb.__init__(self, *args, **kwargs)
         self.maxdist = self.firstx + self.dx*(self.nx-1)
-        self.maxdepth = self.firstz + self.dx(self.nz-1)
+        self.maxdepth = self.firstz + self.dx*(self.nz-1)
 
     def out_of_bounds(self, event, station):
-        dist = event.distance_to(station)
+        dist = orthodrome.distance_accurate50m(event, station)
         return dist<self.firstx or dist>self.maxdist or event.depth<self.firstz or event.depth>self.maxdepth
 
     def adjust_sampling_rates(self, traces):
         """Equalize sampling rates of all traces according to gfdb"""
         for tr in traces:
             tr.downsample_to(self.dt)
+    
+    def get_limits(self, in_km=False):
+        if in_km is True:
+            return self.firstz/1000., self.maxdepth/1000., self.firstx/1000., self.maxdist/1000.
+        else:
+            return self.firstz, self.maxdepth, self.firstx, self.maxdist
 
     @classmethod
     def from_config(cls, config):
-        return cls.__init__(gfdbpath=config['GFDB_STEP1'])
+        return cls(gfdbpath=config['GFDB_STEP1']+'/db', config=config)
 
 def make_sane_directories(directory, force):
     if os.path.exists(directory):
@@ -50,12 +61,15 @@ class StationConfigurator():
                  util.match_nslc('%s.%s.%s.*'%stat.nsl(), tr.nslc_id )])
         
         file_str = ''
+        oob = []
         for i,s in enumerate(stats):
             if not gfdb.out_of_bounds(event, s):
                 file_str +='%s   '%(i+1)
+            else:
+                oob.append(s.nsl)
             file_str +='%s   '%s.station
             file_str +='%s   %s\n'%(s.lat, s.lon)
-        return file_str
+        return oob, file_str
 
 class RapidinvConfig():
     def __init__(self,
@@ -146,7 +160,7 @@ class MultiEventInversion():
             local_config['LATITUDE_NORTH'] = e.lat
             local_config['LONGITUDE_EAST'] = e.lon
             local_config['DEPTH_1'], local_config['DEPTH_2'], local_config['DEPTH_STEP'] = self.config.get_depths(e)
-            self.gfdb.add_mustard(self.config)
+            #self.gfdb.add_mustard(self.config)
             # Is the ORIG_TIME in seconds after 01011970? Doesnt seem to be
             # working
             #local_config['ORIG_TIME'] = e.time
@@ -157,7 +171,8 @@ class MultiEventInversion():
             #    for sub_component in ['1', '2', 'STEP']:
             #        local_config['_'.join(component, sub_component)] = dc_settings.next()
 
-            local_config['DIP'], local_config['DEPTH_2'], local_config['DEPTH_STEP'] = self.config.get_depths(e)
+            local_config['DEPTH_1'], local_config['DEPTH_2'], local_config['DEPTH_STEP'] = self.config.get_depths(e)
+            local_config['DEPTH_UPPERLIM'], local_config['DEPTH_BOTTOMLIM'], local_config['EPIC_DIST_MIN'], local_config['EPIC_DIST_MAX'] = self.gfdb.get_limits(in_km=True)
             inversion = Inversion(parent=self, 
                                   config=local_config,
                                   inversion_id=i, 
@@ -174,10 +189,6 @@ class MultiEventInversion():
 
     def run_all(self, ncpus=1, log_level=logging.DEBUG):
         # Auswirkung von maxtaskperchild testen
-        p = Pool(processes=ncpus,
-                 maxtasksperchild=2)
-        
-        logging.info("starting parallel %s processes"%ncpus)
         file_paths = []
         log_file_paths = []
         pouts = []
@@ -186,12 +197,18 @@ class MultiEventInversion():
             log_file_paths.append(inv.get_log_filename())
         log_levels = [log_level]*len(self.inversions)
         args = zip(file_paths, log_file_paths, log_levels)
-        import pdb 
-        pdb.set_trace()
-        p.map(run_rapidinv, args)
-        p.close()
-        p.join()
+        if ncpus!=1:
+            p = Pool(processes=ncpus,
+                 maxtasksperchild=2)
+        
+            logging.info("starting parallel %s processes"%ncpus)
+            p.map(run_rapidinv, args)
+            p.close()
+            p.join()
 
+        else:
+            map(run_rapidinv, args)
+        
     def out_path(self, event):
         file_path = '_'.join(event.time_as_string().split())
         file_path = file_path.replace(':', '')
@@ -206,7 +223,7 @@ class Inversion(Process):
         self.config = config
         self.force = force
         self.inversion_id = inversion_id
-        self.out_of_bounds = []
+        #self.out_of_bounds = []
     
         self.event = None
     
@@ -247,7 +264,7 @@ class Inversion(Process):
             return True
 
     def make_station_file(self):
-        stats = self.config.make_rapidinv_stations_file(self.traces,
+        self.out_of_bounds, stats = self.config.make_rapidinv_stations_file(self.traces,
                                                         self.event, 
                                                         self.parent.gfdb)
         fn = pjoin(self.base_path, 'data', 'stations.txt')
@@ -257,13 +274,10 @@ class Inversion(Process):
 
         logging.debug('ID %s -  station file: %s'%(self.inversion_id, fn))
 
-    def out_of_bounds(self, tr):
-        return tr.nslc_id in self.out_of_bounds
-
     def write_data(self, reader):
         for tr in self.traces:
             fn = 'DISPL.%s.%s'%(tr.station, tr.channel)
-            if (self.event.get_hash, tr.nslc_id[::3]) in self.parent.gfdb._out_of_bounds:
+            if tr.nslc_id[::3] in self.out_of_bounds:
                 fn = 'OOB.' + fn
             fn = pjoin(self.config['DATA_DIR'], fn)
             io.save(tr, fn)
