@@ -4374,7 +4374,7 @@ def inversionEIKsource(inv_step,inv_param,start_eikonals,eikonals,best_eikonals,
       freceivers=os.path.join(inv_param['INVERSION_DIR'],'stations.table.kin.good')
    fdata=os.path.join(inv_param['INVERSION_DIR'],inv_param['DATA_FILE'])
    if (inv_step == '3'):
-      logger.indo('Inversion step 3')
+      logger.info('Inversion step 3')
 #      n_local_loops=int(inv_param['LOOPS_EIK_CONF'])
       n_local_loops=1  
    else:
