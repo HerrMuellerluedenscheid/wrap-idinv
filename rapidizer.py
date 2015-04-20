@@ -3,6 +3,8 @@ import os
 import shutil
 import logging
 import copy
+
+from collections import OrderedDict
 from multiprocessing import Process, Pool
 from pyrocko.util import time_to_str
 from pyrocko import io
@@ -10,7 +12,6 @@ from pyrocko import model
 from pyrocko import util
 from pyrocko import orthodrome
 from rapidinv import run_rapidinv
-#from gfdb import GFDB
 
 from tunguska import gfdb
 
@@ -89,7 +90,7 @@ class RapidinvConfig():
         self.parameters.update(**kwargs)
 
     def load_defaults(self):
-        defaults = {}
+        defaults = OrderedDict()
         with open(self.fn_defaults, 'r') as f:
             for i, line in enumerate(f.readlines()):
                 k, v = line.split()
@@ -198,13 +199,11 @@ class MultiEventInversion():
         log_levels = [log_level]*len(self.inversions)
         args = zip(file_paths, log_file_paths, log_levels)
         if ncpus!=1:
-            p = Pool(processes=ncpus,
-                 maxtasksperchild=2)
-        
+            p = Pool(processes=ncpus)
             logging.info("starting parallel %s processes"%ncpus)
             p.map(run_rapidinv, args)
-            p.close()
-            p.join()
+            #p.close()
+            #p.join()
 
         else:
             map(run_rapidinv, args)
