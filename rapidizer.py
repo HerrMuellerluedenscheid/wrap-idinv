@@ -141,7 +141,7 @@ class RapidinvConfig():
     def make_rapidinv_input(self):
         string = ''
         for k,v in self.parameters.items():
-            string+='%s   %s\n'%(k, v)
+            string+='{0:25s}{1}\n'%(k, v)
         return string
 
 
@@ -174,6 +174,9 @@ class MultiEventInversion():
 
             local_config['DEPTH_1'], local_config['DEPTH_2'], local_config['DEPTH_STEP'] = self.config.get_depths(e)
             local_config['DEPTH_UPPERLIM'], local_config['DEPTH_BOTTOMLIM'], local_config['EPIC_DIST_MIN'], local_config['EPIC_DIST_MAX'] = self.gfdb.get_limits(in_km=True)
+            local_config['EPIC_DIST_MAXLOC'] = local_config['EPIC_DIST_MAX']
+            local_config['EPIC_DIST_MAXKIN'] = local_config['EPIC_DIST_MAX']
+
             inversion = Inversion(parent=self, 
                                   config=local_config,
                                   inversion_id=i, 
