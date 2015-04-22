@@ -17,11 +17,13 @@ if __name__ == '__main__':
     r = Reader(webnet,
                #data='mseed/2008/*/*',
                data='scaled/2008Oct/*',
-               events='catalog/intern/Oct2008_events.pf', 
-               phases='catalog/intern/Oct2008_phases.pf')
+               events='catalog/intern/Oct2008_TESTevents.pf', 
+               phases='catalog/intern/Oct2008_phases.pf',
+               event_sorting=lambda x: x.magnitude)
     r.start()
 
     config = RapidinvConfig(base_path=pjoin(webnet, 'inversions'), 
+                            fn_defaults='rapidinv.local',
                             fn_stations=pjoin(webnet, 'meta/stations.pf'),
                             reset_time=True)
     

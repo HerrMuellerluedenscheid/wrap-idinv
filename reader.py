@@ -8,15 +8,19 @@ import glob
 import logging
 
 
+
 class Reader:
-    def __init__(self, basepath, data, events, phases):
+    def __init__(self, basepath, data, events, phases, event_sorting=None):
         self._base_path=basepath
         self._meta_events = pjoin(self._base_path, events)
         self._meta_phases = pjoin(self._base_path, phases)
         self._data_path = pjoin(self._base_path, data)
+        self._event_sorting = event_sorting
 
     def start(self):
         self.events = model.load_events(self._meta_events)
+        if self._event_sorting is not None:
+            self.events.sort(key=self._event_sorting)
         self.phases = gui_util.PhaseMarker.load_markers(self._meta_phases)
         self.assign_events()
         data_paths = glob.glob(self._data_path)
