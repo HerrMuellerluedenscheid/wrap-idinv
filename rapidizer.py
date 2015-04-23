@@ -141,7 +141,7 @@ class RapidinvConfig():
     def make_rapidinv_input(self):
         string = ''
         for k,v in self.parameters.items():
-            string+='{0:25s}{1}\n'%(k, v)
+            string+='{0:25s}{1}\n'.format(k, v)
         return string
 
 
