@@ -160,12 +160,13 @@ class MultiEventInversion():
             local_config['DATA_DIR'] = pjoin(self.out_path(e),  'data')
             local_config['LATITUDE_NORTH'] = e.lat
             local_config['LONGITUDE_EAST'] = e.lon
+            local_config['SCAL_MOM_1'], local_config['SCAL_MOM_2'] = [e.moment]*2
+            local_config['SCAL_MOM_STEP'] = 0.
+
             local_config['DEPTH_1'], local_config['DEPTH_2'], local_config['DEPTH_STEP'] = self.config.get_depths(e)
-            #self.gfdb.add_mustard(self.config)
             # Is the ORIG_TIME in seconds after 01011970? Doesnt seem to be
             # working
             #local_config['ORIG_TIME'] = e.time
-            
             # postponed....
             #dc_settings = self.config.get_dc_settings(e)
             #for component in ['STRIKE', 'DIP', 'RAKE']:
@@ -173,6 +174,7 @@ class MultiEventInversion():
             #        local_config['_'.join(component, sub_component)] = dc_settings.next()
 
             local_config['DEPTH_1'], local_config['DEPTH_2'], local_config['DEPTH_STEP'] = self.config.get_depths(e)
+
             local_config['DEPTH_UPPERLIM'], local_config['DEPTH_BOTTOMLIM'], local_config['EPIC_DIST_MIN'], local_config['EPIC_DIST_MAX'] = self.gfdb.get_limits(in_km=True)
             local_config['EPIC_DIST_MAXLOC'] = local_config['EPIC_DIST_MAX']
             local_config['EPIC_DIST_MAXKIN'] = local_config['EPIC_DIST_MAX']
