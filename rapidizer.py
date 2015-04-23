@@ -11,6 +11,7 @@ from pyrocko import io
 from pyrocko import model
 from pyrocko import util
 from pyrocko import orthodrome
+from pyrocko import moment_tensor
 from rapidinv import run_rapidinv
 
 from tunguska import gfdb
@@ -160,7 +161,12 @@ class MultiEventInversion():
             local_config['DATA_DIR'] = pjoin(self.out_path(e),  'data')
             local_config['LATITUDE_NORTH'] = e.lat
             local_config['LONGITUDE_EAST'] = e.lon
-            local_config['SCAL_MOM_1'], local_config['SCAL_MOM_2'] = [e.moment]*2
+            if e.moment_tensor is not None:
+                local_config['SCAL_MOM_1'], local_config['SCAL_MOM_2'] =\
+                    [e.moment_tensor.moment]*2
+            elif e.magnitude is not None:
+                local_config['SCAL_MOM_1'], local_config['SCAL_MOM_2'] =\
+                    [moment_tensor.magnitude_to_moment(e.magnitude)]*2
             local_config['SCAL_MOM_STEP'] = 0.
 
             local_config['DEPTH_1'], local_config['DEPTH_2'], local_config['DEPTH_STEP'] = self.config.get_depths(e)
