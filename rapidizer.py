@@ -18,6 +18,10 @@ from tunguska import gfdb
 
 mkdir = os.mkdir
         
+
+class RapidinvDataError(Exception):
+    pass
+
 class MyGFDB(gfdb.Gfdb):
     def __init__(self, *args, **kwargs):
         try:
@@ -58,20 +62,22 @@ class StationConfigurator():
         self.fn_stations = fn_stations
         self.stations = model.load_stations(fn_stations)
 
-    def make_rapidinv_stations_file(self, traces, event, gfdb):
+    def make_rapidinv_stations_string(self, traces, event, gfdb):
         stats = set([stat for tr in traces for stat in self.stations if
                  util.match_nslc('%s.%s.%s.*'%stat.nsl(), tr.nslc_id )])
         
         file_str = ''
         oob = []
+        num_s = 0
         for i,s in enumerate(stats):
             if not gfdb.out_of_bounds(event, s):
                 file_str +='%s   '%(i+1)
+                num_s += 1
             else:
                 oob.append(s.nsl)
             file_str +='%s   '%s.station
             file_str +='%s   %s\n'%(s.lat, s.lon)
-        return oob, file_str
+        return num_s, oob, file_str
 
 class RapidinvConfig():
     def __init__(self,
@@ -113,8 +119,8 @@ class RapidinvConfig():
         z2 = event.depth/1000.
         return z1, z2, dz 
 
-    def make_rapidinv_stations_file(self, *args, **kwargs):
-        return self.stations.make_rapidinv_stations_file(*args, **kwargs)
+    def make_rapidinv_stations_string(self, *args, **kwargs):
+        return self.stations.make_rapidinv_stations_string(*args, **kwargs)
 
     def __setitem__(self, key, value):
         """Following substitutions are made:
@@ -242,7 +248,10 @@ class Inversion(Process):
         status = self.make_data(reader)
         if status==True:
             self.make_directories()
-            self.make_station_file()
+            try:
+                self.make_station_file()
+            except RapidinvDataError:
+                return False
             self.write_data(reader)
             self.make_rapidinv_file()
             return True
@@ -274,15 +283,18 @@ class Inversion(Process):
             return True
 
     def make_station_file(self):
-        self.out_of_bounds, stats = self.config.make_rapidinv_stations_file(self.traces,
+        num_stations, self.out_of_bounds, stats = self.config.make_rapidinv_stations_string(self.traces,
                                                         self.event, 
                                                         self.parent.gfdb)
+        
         fn = pjoin(self.base_path, 'data', 'stations.txt')
         self.config['STAT_INP_FILE'] = fn
         with open(fn, 'w') as f:
             f.write(stats)
 
         logging.debug('ID %s -  station file: %s'%(self.inversion_id, fn))
+        if num_stations<2:
+            raise RapidinvDataError
 
     def write_data(self, reader):
         for tr in self.traces:
