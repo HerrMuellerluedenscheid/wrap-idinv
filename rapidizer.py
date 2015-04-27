@@ -3,22 +3,23 @@ import os
 import shutil
 import logging
 import copy
+from threading import Thread
 
 from collections import OrderedDict
-from multiprocessing import Process, Pool
+from multiprocessing import Process, Pool, Queue
 from pyrocko.util import time_to_str
 from pyrocko import io
 from pyrocko import model
 from pyrocko import util
 from pyrocko import orthodrome
 from pyrocko import moment_tensor
-from rapidinv import run_rapidinv
+from rapidinv import run_rapidinv, MinimizerError
 
 from tunguska import gfdb
 
 mkdir = os.mkdir
         
-
+logger = logging.getLogger('rapidizer')
 class RapidinvDataError(Exception):
     pass
 
@@ -151,6 +152,18 @@ class RapidinvConfig():
             string+='{0:25s}{1}\n'.format(k, v)
         return string
 
+def worker(tasks):
+    for task in iter(tasks.get, 'stop'):
+        try:
+            thread = Thread(target=run_rapidinv, args=(task,))
+            thread.start()
+            return_value = thread.join()
+            #thread.terminate()
+            #task.close()
+            #task.join_thread()
+        except MinimizerError:
+            continue
+    return True
 
 class MultiEventInversion():
     def __init__(self, config, reader):
@@ -160,7 +173,7 @@ class MultiEventInversion():
         self.inversions = []
 
     def prepare(self, force=False, num_inversions=99999999):
-        logging.debug('preparing, force=%s'%force)
+        logger.debug('preparing, force=%s'%force)
         for i, e in enumerate(self.reader.iter_events()):
             local_config = self.config.copy()
             local_config['INVERSION_DIR'] = pjoin(self.out_path(e), 'out')
@@ -215,12 +228,47 @@ class MultiEventInversion():
             log_file_paths.append(inv.get_log_filename())
         log_levels = [log_level]*len(self.inversions)
         args = zip(file_paths, log_file_paths, log_levels)
+        processes = []
         if ncpus!=1:
             p = Pool(processes=ncpus)
-            logging.info("starting parallel %s processes"%ncpus)
-            p.map(run_rapidinv, args)
+            logger.info("starting parallel %s processes"%ncpus)
+            tasks = Queue()
+
+            for arg in args:
+                tasks.put(arg)
+
+            for i in range(ncpus):
+                print i
+                p = Process(target=worker, args=(tasks, ))
+                p.start()
+                processes.append(p)
+                tasks.put('stop')
+
+            for p in processes:
+                p.join()
+            #p.map(run_rapidinv, args)
+            #p.map_async(run_rapidinv, args)
+            #p.apply_async(run_rapidinv, args)
             #p.close()
             #p.join()
+
+            #processes = [] 
+            #job_count = 0
+            #for i in range(5):
+            #    p = Process(target=run_rapidinv,
+            #                                args=args[job_count])
+            #    
+            #    processes.append(p)
+            #    job_count+=1
+            #
+            #for p in processes:
+            #    p.start()
+
+            #for p in processes:
+            #    p.join()
+
+            # und nun als Queue variante
+
 
         else:
             map(run_rapidinv, args)
@@ -260,7 +308,7 @@ class Inversion(Process):
 
     def make_directories(self):
         self.base_path = self.config['INVERSION_DIR'].rsplit('/', 1)[0] 
-        logging.info('creating output directory: %s'%self.base_path)
+        logger.info('creating output directory: %s'%self.base_path)
         make_sane_directories(self.base_path, self.force)
         make_sane_directories(self.config['INVERSION_DIR'], self.force)
         make_sane_directories(self.config['DATA_DIR'], self.force)
@@ -276,10 +324,10 @@ class Inversion(Process):
                                            reset_time=self.config.reset_time)
         self.parent.gfdb.adjust_sampling_rates(self.traces)
         if self.traces==None:
-            logging.debug('No Data found %s'%self.event)
+            logger.debug('No Data found %s'%self.event)
             return False
         else:
-            logging.info('Found Data %s'%self.event.time_as_string())
+            logger.info('Found Data %s'%self.event.time_as_string())
             return True
 
     def make_station_file(self):
@@ -292,7 +340,7 @@ class Inversion(Process):
         with open(fn, 'w') as f:
             f.write(stats)
 
-        logging.debug('ID %s -  station file: %s'%(self.inversion_id, fn))
+        logger.debug('ID %s -  station file: %s'%(self.inversion_id, fn))
         if num_stations<2:
             raise RapidinvDataError
 
