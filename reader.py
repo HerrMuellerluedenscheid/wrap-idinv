@@ -4,7 +4,7 @@ import sys
 from os.path import join as pjoin
 import os
 import glob
-
+from collections import defaultdict
 import logging
 
 
@@ -13,17 +13,33 @@ class Reader:
     def __init__(self, basepath, data, events, phases, event_sorting=None):
         self._base_path=basepath
         self._meta_events = pjoin(self._base_path, events)
-        self._meta_phases = pjoin(self._base_path, phases)
-        self._data_path = pjoin(self._base_path, data)
+        if phases:
+            self._meta_phases = pjoin(self._base_path, phases)
+        else:
+            self._meta_phases = None
+        if isinstance(data, list):
+            self._data_paths = [pjoin(self._base_path, p) for p in data]
+        else:
+            self._data_paths = pjoin(self._base_path, data)
         self._event_sorting = event_sorting
 
     def start(self):
         self.events = model.load_events(self._meta_events)
+        for i in range(len(self.events)):
+            e = self.events[i]
+            if e.magnitude is None and e.moment_tensor is not None:
+                e.magnitude = e.moment_tensor.magnitude
         if self._event_sorting is not None:
             self.events.sort(key=self._event_sorting)
-        self.phases = gui_util.PhaseMarker.load_markers(self._meta_phases)
+        
+        if self._meta_phases:
+            self.phases = gui_util.PhaseMarker.load_markers(self._meta_phases)
+        else:
+            self.phases = []
         self.assign_events()
-        data_paths = glob.glob(self._data_path)
+        data_paths = []
+        for p in self._data_paths:
+            data_paths.extend(glob.glob(p))
 
         self.pile = pile.make_pile(data_paths)
         self.clear_events()
@@ -42,14 +58,23 @@ class Reader:
             yield e
 
     def assign_events(self):
-        hashs = {}
+        # doesn't work: probably an error when assigning hashes at write time
+        #hashs = {}
+        #for e in self.iter_events():
+        #    hashs[e.get_hash()] = e
+        events_by_time = {}
         for e in self.iter_events():
-            hashs[e.get_hash()] = e
+            events_by_time[e.time] = e
         i_unassigned = 0
         i_assigned = 0
+        self._phases = defaultdict(list)
         for p in self.phases:
             try:
-                p.set_event(hashs[p.get_event_hash()])
+                event_identifier = p.get_event_time()
+                p.set_event(events_by_time[event_identifier])
+                p.tmin -= p.get_event().time
+                p.tmax -= p.get_event().time
+                self._phases[event_identifier].append(p)
                 i_assigned += 1
             except KeyError:
                 logging.debug('could not set event for phase %s'%p)
@@ -70,4 +95,7 @@ class Reader:
             
             traces.extend(traces_segment)
         return traces
+
+    def get_phases_of_event(self, event):
+        return self._phases[event.time]
 
