@@ -4,13 +4,15 @@ import shutil
 import logging
 import copy
 from threading import Thread
-
+import threading
+import signal
 from collections import OrderedDict
-from multiprocessing import Process, Pool, Queue
+from multiprocessing import Process, Pool, Queue, JoinableQueue
 from pyrocko.util import time_to_str
 from pyrocko import io
 from pyrocko import model
 from pyrocko import util
+from pyrocko import gui_util
 from pyrocko import orthodrome
 from pyrocko import moment_tensor
 from rapidinv import run_rapidinv, MinimizerError
@@ -152,29 +154,43 @@ class RapidinvConfig():
             string+='{0:25s}{1}\n'.format(k, v)
         return string
 
-def worker(tasks):
+def worker(tasks, num_tasks):
+    i = 0
     for task in iter(tasks.get, 'stop'):
+        i+=1
         try:
-            thread = Thread(target=run_rapidinv, args=(task,))
+            thread = Process(target=run_rapidinv, args=(task,))
+            print 'started thread'
+            thread.deamon = True
             thread.start()
-            return_value = thread.join()
-            #thread.terminate()
-            #task.close()
-            #task.join_thread()
+            
+            thread.join()
+            thread.terminate()
         except MinimizerError:
             continue
     return True
 
 class MultiEventInversion():
-    def __init__(self, config, reader):
+    def __init__(self, config, reader, blacklist=None):
+        self.blacklist = blacklist or []
         self.config = config
         self.reader = reader
         self.gfdb = MyGFDB.from_config(config)
         self.inversions = []
 
-    def prepare(self, force=False, num_inversions=99999999):
+    def prepare(self, force=False, num_inversions=99999999, try_set_sdr=False):
+        """ Prepare inversions.
+
+        :param force: (default False) force overwrite of existing directory
+        :param num_inversions: number of inversions to be done
+        :param try_set_sdr: if the underlying event contains MT information, use
+        those in the rapidinv input file (default False). Mostly for debugging
+        and testing.
+        """
         logger.debug('preparing, force=%s'%force)
         for i, e in enumerate(self.reader.iter_events()):
+            if self.out_path(e) in self.blacklist:
+                continue
             local_config = self.config.copy()
             local_config['INVERSION_DIR'] = pjoin(self.out_path(e), 'out')
             local_config['DATA_DIR'] = pjoin(self.out_path(e),  'data')
@@ -186,6 +202,13 @@ class MultiEventInversion():
             elif e.magnitude is not None:
                 local_config['SCAL_MOM_1'], local_config['SCAL_MOM_2'] =\
                     [moment_tensor.magnitude_to_moment(e.magnitude)]*2
+            if try_set_sdr and e.moment_tensor is not None:
+                sdr = e.moment_tensor.both_strike_dip_rake()[0]
+                local_config['STRIKE_1'], local_config['STRIKE_2'] = [float(sdr[0])]*2
+                local_config['DIP_1'], local_config['DIP_2'] = [float(sdr[1])]*2
+                local_config['RAKE_1'], local_config['RAKE_2'] = [float(sdr[2])]*2
+                for key in ['STRIKE_STEP', 'DIP_STEP', 'RAKE_STEP']:
+                    local_config[key] = 1.
             local_config['SCAL_MOM_STEP'] = 0.
 
             local_config['DEPTH_1'], local_config['DEPTH_2'], local_config['DEPTH_STEP'] = self.config.get_depths(e)
@@ -203,11 +226,11 @@ class MultiEventInversion():
             local_config['DEPTH_UPPERLIM'], local_config['DEPTH_BOTTOMLIM'], local_config['EPIC_DIST_MIN'], local_config['EPIC_DIST_MAX'] = self.gfdb.get_limits(in_km=True)
             local_config['EPIC_DIST_MAXLOC'] = local_config['EPIC_DIST_MAX']
             local_config['EPIC_DIST_MAXKIN'] = local_config['EPIC_DIST_MAX']
-
             inversion = Inversion(parent=self, 
                                   config=local_config,
                                   inversion_id=i, 
-                                  force=force)
+                                  force=force,
+                                  picks=self.reader.get_phases_of_event(e))
 
             ready = inversion.prepare(self.reader, e)
             if ready:
@@ -218,7 +241,7 @@ class MultiEventInversion():
             else:
                 continue
 
-    def run_all(self, ncpus=1, log_level=logging.DEBUG):
+    def run_all(self, ncpus=1, log_level=logging.DEBUG, do_log=False, do_align=False):
         # Auswirkung von maxtaskperchild testen
         file_paths = []
         log_file_paths = []
@@ -227,48 +250,28 @@ class MultiEventInversion():
             file_paths.append(inv.get_execute_filename())
             log_file_paths.append(inv.get_log_filename())
         log_levels = [log_level]*len(self.inversions)
-        args = zip(file_paths, log_file_paths, log_levels)
+        do_align = [do_align]*len(self.inversions)
+        do_log = [do_log]*len(self.inversions)
+        
+        args = zip(file_paths, log_file_paths, log_levels, do_align, do_log)
         processes = []
         if ncpus!=1:
-            p = Pool(processes=ncpus)
             logger.info("starting parallel %s processes"%ncpus)
             tasks = Queue()
 
-            for arg in args:
-                tasks.put(arg)
-
             for i in range(ncpus):
-                print i
-                p = Process(target=worker, args=(tasks, ))
+                p = Process(target=worker, args=(tasks, len(args)))
                 p.start()
                 processes.append(p)
-                tasks.put('stop')
-
-            for p in processes:
-                p.join()
-            #p.map(run_rapidinv, args)
-            #p.map_async(run_rapidinv, args)
-            #p.apply_async(run_rapidinv, args)
-            #p.close()
-            #p.join()
-
-            #processes = [] 
-            #job_count = 0
-            #for i in range(5):
-            #    p = Process(target=run_rapidinv,
-            #                                args=args[job_count])
-            #    
-            #    processes.append(p)
-            #    job_count+=1
-            #
-            #for p in processes:
-            #    p.start()
-
-            #for p in processes:
-            #    p.join()
-
-            # und nun als Queue variante
-
+            
+            for iarg, arg in enumerate(args):
+                tasks.put(arg)
+            
+            print 'DONE putting args'
+            for i in range(ncpus):
+                p.terminate()
+            tasks.put('stop')
+            tasks.close()
 
         else:
             map(run_rapidinv, args)
@@ -281,12 +284,14 @@ class MultiEventInversion():
 
 
 class Inversion(Process):
-    def __init__(self, parent, config, inversion_id=None, force=False):
+    def __init__(self, parent, config, inversion_id=None, force=False,
+                 picks=None):
         Process.__init__(self)
         self.parent = parent
         self.config = config
         self.force = force
         self.inversion_id = inversion_id
+        self.picks = picks
         #self.out_of_bounds = []
     
         self.event = None
@@ -301,7 +306,9 @@ class Inversion(Process):
             except RapidinvDataError:
                 return False
             self.write_data(reader)
+            self.write_pyrocko_event()
             self.make_rapidinv_file()
+            self.write_picks()
             return True
         else:
             return False
@@ -352,6 +359,16 @@ class Inversion(Process):
             fn = pjoin(self.config['DATA_DIR'], fn)
             io.save(tr, fn)
     
+    def write_pyrocko_event(self):
+        fn = pjoin(self.config['DATA_DIR'], 'event.pf')
+        if self.config.reset_time:
+            self.event.time = 0.
+        model.dump_events([self.event], fn)
+
+    def write_picks(self):
+        fn = pjoin(self.config['DATA_DIR'], 'phase_picks.pf')
+        gui_util.save_markers(self.picks, fn)
+
     def make_rapidinv_file(self):
         fn = pjoin(self.base_path, 'rapid.inp')
         with open(fn, 'w') as f:
