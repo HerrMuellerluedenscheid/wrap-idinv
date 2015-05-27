@@ -10,7 +10,10 @@ import logging
 
 
 class Reader:
-    def __init__(self, basepath, data, events, phases, event_sorting=None):
+    def __init__(self, basepath, data, events, phases, event_sorting=None,
+                 traces_blacklist=None,flip_polarities=None):
+        self._flip_polarities = flip_polarities or []
+        self._traces_blacklist = traces_blacklist or []
         self._base_path=basepath
         self._meta_events = pjoin(self._base_path, events)
         if phases:
@@ -92,6 +95,10 @@ class Reader:
             if reset_time:
                 for tr in traces_segment:
                     tr.shift(-event.time)
+                    if tr.nslc_id in self._traces_blacklist:
+                        continue
+                    if tr.nslc_id in self._flip_polarities:
+                        tr.set_ydata(tr.get_ydata()*-1)
             
             traces.extend(traces_segment)
         return traces

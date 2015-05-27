@@ -7,13 +7,15 @@ from rapidizer import RapidinvConfig, MultiEventInversion
 
 
 pjoin = os.path.join
-logging.basicConfig(filename='test.log', level=logging.INFO)
+logging.basicConfig(filename=None, level=logging.INFO)
 
 
 if __name__ == '__main__':
     
     logging.info("start-logging")
     webnet = os.environ['WEBNET']
+    #traces_blacklist = [('','STC','','SHZ'),]
+    traces_blacklist = []
     r = Reader(webnet,
                #data=['pole_zero/restituted_displacement/2008Oct/*'],
                data=['pole_zero/restituted_displacement/2008Oct/*',
@@ -21,11 +23,14 @@ if __name__ == '__main__':
                #events='catalog/intern/Oct2008_events.pf', 
                events='/data/webnet/meta/events2008_mt_tunedt.pf',
                #phases='catalog/intern/Oct2008_phases.pf',
-               phases='/data/webnet/meta/phase_markers2008_mt_associated.pf',
-               event_sorting=lambda x: -1*x.magnitude)
+               phases='/data/webnet/meta/phase_markers2008_reassociated_all.pf',
+               event_sorting=lambda x: -1*x.magnitude,
+               flip_polarities=[('','VAC','','SHE'), ],
+               traces_blacklist=traces_blacklist)
     r.start()
 
-    config = RapidinvConfig(base_path=pjoin(webnet, 'inversion_mt_nolog_doalign'),
+    config = RapidinvConfig(base_path=pjoin(webnet,
+                                            'inversion_mt_tunet_flipVACE'),
                             fn_defaults='rapidinv.local',
                             fn_stations=pjoin(webnet, 'meta/stations.pf'),
                             reset_time=True)
@@ -38,8 +43,8 @@ if __name__ == '__main__':
                                     reader=r, 
                                     blacklist=blacklist)
     inversion.prepare(force=True,
-                      num_inversions=70, 
+                      num_inversions=100, 
                       try_set_sdr=False)
 
-    inversion.run_all(8, do_log=False, do_align=True)
+    inversion.run_all(8, do_log=True, do_align=False)
     logging.info('finished')
