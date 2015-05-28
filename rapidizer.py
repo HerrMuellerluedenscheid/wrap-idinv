@@ -259,10 +259,10 @@ class MultiEventInversion():
         args = zip(file_paths, log_file_paths, log_levels, do_align, do_log)
         processes = []
         if ncpus!=1:
-            logger.info("starting parallel %s processes"%ncpus)
+            logger.info("starting parallel %s processes"%ncpus+1)
             tasks = Queue()
 
-            for i in range(ncpus):
+            for i in range(ncpus+1):
                 p = Process(target=worker, args=(tasks, len(args)))
                 p.start()
                 processes.append(p)
@@ -271,7 +271,7 @@ class MultiEventInversion():
                 tasks.put(arg)
             
             print 'DONE putting args'
-            for i in range(ncpus):
+            for i in range(ncpus+1):
                 p.terminate()
             tasks.put('stop')
             tasks.close()
