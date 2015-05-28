@@ -151,7 +151,10 @@ class RapidinvConfig():
     def make_rapidinv_input(self):
         string = ''
         for k,v in self.parameters.items():
-            string+='{0:25s}{1}\n'.format(k, v)
+            if isinstance(v, float):
+                string+='{0:25s} {1:f}\n'.format(k, v)
+            else:
+                string+='{0:25s} {1:s}\n'.format(k, v)
         return string
 
 def worker(tasks, num_tasks):
