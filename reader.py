@@ -11,7 +11,10 @@ import logging
 
 class Reader:
     def __init__(self, basepath, data, events, phases, event_sorting=None,
-                 traces_blacklist=None,flip_polarities=None):
+                 traces_blacklist=None,flip_polarities=None, 
+                 taper=None, gain=None):
+        self._gain = gain or {}
+        self._taper = taper 
         self._flip_polarities = flip_polarities or []
         self._traces_blacklist = traces_blacklist or []
         self._base_path=basepath
@@ -86,21 +89,35 @@ class Reader:
 
         logging.info('unassigned/assigned: %s/%s '%(i_unassigned, i_assigned))
 
-    def get_waveforms(self, event, timespan=10., reset_time=False):
+    def get_waveforms(self, event, timespan=10., reset_time=False, left_shift=None):
         '''request waveforms and equilibrate sampling rates if needed
         
-        :param reset_time: if True subtract event time'''
+        :param reset_time: if True subtract event time
+        :param left_shift: 0.-1. if 1:shift targeted time window 100% of window length left'''
         traces = []
-        for traces_segment in self.pile.chopper(event.time, event.time+timespan):
+        if left_shift:
+            tshift = timespan*left_shift
+        else:
+            tshift = 0.
+        for traces_segment in self.pile.chopper(event.time-tshift, event.time+timespan-tshift):
             if reset_time:
                 for tr in traces_segment:
                     tr.shift(-event.time)
-                    if tr.nslc_id in self._traces_blacklist:
-                        continue
                     if tr.nslc_id in self._flip_polarities:
                         tr.set_ydata(tr.get_ydata()*-1)
-            
+                    
+                    if tr.nslc_id in self._gain.keys():
+                        tr.set_ydata(tr.get_ydata()*self._gain[tr.nslc_id])
+
+                    if self._taper:
+                        tr.taper(self._taper)
+
             traces.extend(traces_segment)
+
+        for tr in traces:
+            if tr.nslc_id in self._traces_blacklist:
+                traces.remove(tr)
+
         return traces
 
     def get_phases_of_event(self, event):

@@ -174,7 +174,8 @@ def worker(tasks, num_tasks):
     return True
 
 class MultiEventInversion():
-    def __init__(self, config, reader, blacklist=None):
+    def __init__(self, config, reader, blacklist=None, left_shift=None):
+        self.left_shift = left_shift
         self.blacklist = blacklist or []
         self.config = config
         self.reader = reader
@@ -259,7 +260,7 @@ class MultiEventInversion():
         args = zip(file_paths, log_file_paths, log_levels, do_align, do_log)
         processes = []
         if ncpus!=1:
-            logger.info("starting parallel %s processes"%ncpus+1)
+            logger.info("starting parallel %s+1 processes"%(ncpus))
             tasks = Queue()
 
             for i in range(ncpus+1):
@@ -331,7 +332,8 @@ class Inversion(Process):
 
     def make_data(self, reader):
         self.traces = reader.get_waveforms(self.event, timespan=20.,
-                                           reset_time=self.config.reset_time)
+                                           reset_time=self.config.reset_time, 
+                                           left_shift=self.parent.left_shift)
         self.parent.gfdb.adjust_sampling_rates(self.traces)
         if self.traces==None:
             logger.debug('No Data found %s'%self.event)
