@@ -88,8 +88,9 @@ class RapidinvConfig():
                  fn_stations,
                  fn_defaults='rapidinv.defaults',
                  reset_time=False,
+                 test_depths=None,
                  **kwargs):
-        
+        self.test_depths = test_depths
         #self.engine = kwargs['engine']
         #self.store_id = kwargs['store_id']
         self.base_path = base_path
@@ -117,9 +118,14 @@ class RapidinvConfig():
     def get_depths(self, event):
         """Should be a function defined by the user.
         WATCH OUT: rapidinv accepts depth in km"""
-        dz = 0.
-        z1 = event.depth/1000.
-        z2 = event.depth/1000.
+        if not self.test_depths:
+            dz = 0.
+            z1 = event.depth/1000.
+            z2 = event.depth/1000.
+        else:
+            dz = self.test_depths['dz']
+            z1 = event.depth/1000.+self.test_depths['zstart']
+            z2 = event.depth/1000.+self.test_depths['zstop']
         return z1, z2, dz 
 
     def make_rapidinv_stations_string(self, *args, **kwargs):
@@ -164,7 +170,8 @@ def worker(tasks, num_tasks):
         try:
             thread = Process(target=run_rapidinv, args=(task,))
             print 'started thread'
-            thread.deamon = True
+            #thread.deamon = True
+            thread.deamon = False
             thread.start()
             
             thread.join()
@@ -272,7 +279,8 @@ class MultiEventInversion():
                 tasks.put(arg)
             
             print 'DONE putting args'
-            for i in range(ncpus+1):
+            for p in processes:
+                p.join()
                 p.terminate()
             tasks.put('stop')
             tasks.close()
@@ -296,7 +304,6 @@ class Inversion(Process):
         self.force = force
         self.inversion_id = inversion_id
         self.picks = picks
-        #self.out_of_bounds = []
     
         self.event = None
     
@@ -309,7 +316,7 @@ class Inversion(Process):
                 self.make_station_file()
             except RapidinvDataError:
                 return False
-            self.write_data(reader)
+            self.write_data()
             self.write_pyrocko_event()
             self.make_rapidinv_file()
             self.write_picks()
@@ -356,7 +363,7 @@ class Inversion(Process):
         if num_stations<2:
             raise RapidinvDataError
 
-    def write_data(self, reader):
+    def write_data(self):
         for tr in self.traces:
             fn = 'DISPL.%s.%s'%(tr.station, tr.channel)
             if tr.nslc_id[::3] in self.out_of_bounds:
