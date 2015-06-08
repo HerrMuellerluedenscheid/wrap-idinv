@@ -2,7 +2,7 @@
 import logging
 import os
 import sys
-from reader import Reader
+from reader import Reader, load_station_corrections
 from rapidizer import RapidinvConfig, MultiEventInversion
 from pyrocko.trace import CosFader
 
@@ -10,14 +10,27 @@ from pyrocko.trace import CosFader
 pjoin = os.path.join
 logging.basicConfig(filename=None, level=logging.WARNING)
 
+"""
+VAC.SHN sollte nicht geblacklisted werden
+SKC Z soll geblacklisted werden
 
+VAC SHE und SKC SHE sind geflipped
+
+"""
 if __name__ == '__main__':
     
     logging.info("start-logging")
     webnet = os.environ['WEBNET']
-    traces_blacklist = [('','STC','','SHZ'), ('','VAC','','SHN'), ('', 'SKC', '', 'SHZ')]
+    traces_blacklist = [('', 'STC', '', 'SHZ'),
+                        #('', 'VAC', '', 'SHN'),
+                        ('', 'SKC', '', 'SHZ'), 
+                        ('', 'KRC', '', 'SHZ'),
+                        ('', 'KRC', '', 'SHN'),
+                        ('', 'KRC', '', 'SHE'),]
     gain = {('','STC','','SHE'):0.4, ('','STC','','SHN'):0.4, ('','STC','','SHZ'):0.4}
-    taper = CosFader(xfade=1.)
+    station_corrections = load_station_corrections('/home/marius/src/seismerize/residuals_median_CakeResiduals.dat')
+    #station_corrections = None
+    taper = CosFader(xfade=3.)
     r = Reader(webnet,
                #data=['pole_zero/restituted_displacement/2008Oct/*'],
                data=['pole_zero/restituted_displacement/2008Oct/*',
@@ -28,18 +41,23 @@ if __name__ == '__main__':
                #phases='catalog/intern/Oct2008_phases.pf',
                #phases='/data/webnet/meta/phase_markers2008_reassociated_all.pf',
                phases=None,
-               event_sorting=lambda x: -1*x.magnitude,
-               flip_polarities=[('','VAC','','SHE'), ],
+               event_sorting=lambda x: x.magnitude,
+               flip_polarities=[('','VAC','','SHE'), ('', 'SKC','','SHE')],
                traces_blacklist=traces_blacklist,
                taper=taper,
-               gain=gain)
+               gain=gain, 
+               station_corrections=station_corrections)
     r.start()
-
+    
+    # tested depths are to be seen relative to the events source depth and given in km.
+    #test_depths = {'dz': 0.4, 'zstart':-0.2, 'zstop': 2.4}
+    test_depths = None
     config = RapidinvConfig(base_path=pjoin(webnet,
-                                            'new/bp3012hz_nodweight_SKCZbl_alex_cc3'),
+                                            'new/station_corrections_depthno_freq'),
                             fn_defaults='rapidinv.local',
                             fn_stations=pjoin(webnet, 'meta/stations.pf'),
-                            reset_time=True)
+                            reset_time=True,
+                            test_depths=test_depths)
     
     # a list of events as expected output dir name
     blacklist = ['2008-10-10_080846_240',
@@ -54,4 +72,5 @@ if __name__ == '__main__':
                       try_set_sdr=True)
 
     inversion.run_all(32, do_log=True, do_align=False)
+    #inversion.run_all(1, do_log=True, do_align=False)
     logging.info('finished')
