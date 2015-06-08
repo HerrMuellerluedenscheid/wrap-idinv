@@ -6,13 +6,42 @@ import os
 import glob
 from collections import defaultdict
 import logging
+import numpy as num
 
 
+def load_station_corrections(fn, combine_channels=True):
+    """
+    :param combine_channels: if True, return one correction per station, which is the
+                             mean of all phases"""
+    corrections = {}
+    with open(fn, 'r') as f:
+        for l in f.readlines():
+            nslc_id, phasename, residual = l.split()
+            nslc_id = tuple(nslc_id.split('.'))
+            if not nslc_id in corrections.keys():
+                corrections[nslc_id] = {}
+            if residual=='None':
+                residual = None
+            else:
+                residual = float(residual)
+
+            corrections[nslc_id][phasename] = residual
+
+    if combine_channels:
+        combined = {}
+        for nslc_id, phasename_residual in corrections.items():
+            d = num.array(phasename_residual.values())
+            d = d[d!=num.array(None)]
+            combined[nslc_id[:3]] = num.mean(d)
+        return combined
+    else:
+        return corrections
 
 class Reader:
     def __init__(self, basepath, data, events, phases, event_sorting=None,
                  traces_blacklist=None,flip_polarities=None, 
-                 taper=None, gain=None):
+                 taper=None, gain=None, station_corrections=None):
+        self._station_corrections = station_corrections or {}
         self._gain = gain or {}
         self._taper = taper 
         self._flip_polarities = flip_polarities or []
@@ -89,7 +118,7 @@ class Reader:
 
         logging.info('unassigned/assigned: %s/%s '%(i_unassigned, i_assigned))
 
-    def get_waveforms(self, event, timespan=10., reset_time=False, left_shift=None):
+    def get_waveforms(self, event, timespan=20., reset_time=False, left_shift=None):
         '''request waveforms and equilibrate sampling rates if needed
         
         :param reset_time: if True subtract event time
@@ -100,23 +129,24 @@ class Reader:
         else:
             tshift = 0.
         for traces_segment in self.pile.chopper(event.time-tshift, event.time+timespan-tshift):
-            if reset_time:
-                for tr in traces_segment:
+            for tr in traces_segment:
+                if tr.nslc_id in self._traces_blacklist:
+                    continue
+                if reset_time:
                     tr.shift(-event.time)
-                    if tr.nslc_id in self._flip_polarities:
-                        tr.set_ydata(tr.get_ydata()*-1)
-                    
-                    if tr.nslc_id in self._gain.keys():
-                        tr.set_ydata(tr.get_ydata()*self._gain[tr.nslc_id])
+                if tr.nslc_id in self._flip_polarities:
+                    tr.set_ydata(tr.get_ydata()*-1)
+                
+                if tr.nslc_id in self._gain.keys():
+                    tr.set_ydata(tr.get_ydata()*self._gain[tr.nslc_id])
+                
+                if tr.nslc_id[:3] in self._station_corrections.keys():
+                    tr.shift(self._station_corrections[tr.nslc_id[:3]])
 
-                    if self._taper:
-                        tr.taper(self._taper)
+                if self._taper:
+                    tr.taper(self._taper)
 
-            traces.extend(traces_segment)
-
-        for tr in traces:
-            if tr.nslc_id in self._traces_blacklist:
-                traces.remove(tr)
+                traces.append(tr)
 
         return traces
 
