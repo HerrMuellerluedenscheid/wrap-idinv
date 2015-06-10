@@ -345,6 +345,14 @@ class Inversion(Process):
         if self.traces==None:
             logger.debug('No Data found %s'%self.event)
             return False
+        
+        if len(self.traces)<reader._need_traces:
+            logger.debug('Not enough traces available %s' % self.event)
+            return False
+
+        if self.traces==None:
+            logger.debug('No Data found %s'%self.event)
+            return False
         else:
             logger.info('Found Data %s'%self.event.time_as_string())
             return True

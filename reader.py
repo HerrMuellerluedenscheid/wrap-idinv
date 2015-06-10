@@ -38,9 +38,10 @@ def load_station_corrections(fn, combine_channels=True):
         return corrections
 
 class Reader:
-    def __init__(self, basepath, data, events, phases, event_sorting=None,
-                 traces_blacklist=None,flip_polarities=None, 
+    def __init__(self, basepath, data, events, phases, need_traces=None, event_sorting=None,
+                 traces_blacklist=None, flip_polarities=None, 
                  taper=None, gain=None, station_corrections=None):
+        self._need_traces = need_traces or 0
         self._station_corrections = station_corrections or {}
         self._gain = gain or {}
         self._taper = taper 
@@ -147,7 +148,7 @@ class Reader:
                     tr.taper(self._taper)
 
                 traces.append(tr)
-
+        
         return traces
 
     def get_phases_of_event(self, event):
