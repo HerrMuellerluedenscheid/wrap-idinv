@@ -167,6 +167,7 @@ def worker(tasks, num_tasks):
     i = 0
     for task in iter(tasks.get, 'stop'):
         i+=1
+        logger.info('get task %s: %s'%(i, task))
         try:
             thread = Process(target=run_rapidinv, args=(task,))
             logger.info('start thread %s'%thread.name) 
@@ -283,11 +284,12 @@ class MultiEventInversion():
             for iarg, arg in enumerate(args):
                 tasks.put(arg)
             
+            tasks.put('stop')
+            tasks.close()
+
             for p in processes:
                 p.join()
                 p.terminate()
-            tasks.put('stop')
-            tasks.close()
 
         else:
             map(run_rapidinv, args)
