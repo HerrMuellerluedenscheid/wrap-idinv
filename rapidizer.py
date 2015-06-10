@@ -21,7 +21,7 @@ from tunguska import gfdb
 
 mkdir = os.mkdir
         
-logger = logging.getLogger('rapidizer')
+logger = logging.getLogger('wrapidinv')
 class RapidinvDataError(Exception):
     pass
 
@@ -169,14 +169,16 @@ def worker(tasks, num_tasks):
         i+=1
         try:
             thread = Process(target=run_rapidinv, args=(task,))
-            print 'started thread'
+            logger.info('start thread %s'%thread.name) 
             #thread.deamon = True
             thread.deamon = False
             thread.start()
             
             thread.join()
             thread.terminate()
+            logger.info('terminated %s'%thread.name) 
         except MinimizerError:
+            logger.info('WARNING: got MinimizerError in thread %s' %thread.name)
             continue
     return True
 
@@ -199,6 +201,7 @@ class MultiEventInversion():
         and testing.
         """
         logger.debug('preparing, force=%s'%force)
+        make_sane_directories(self.config.base_path, force)
         for i, e in enumerate(self.reader.iter_events()):
             if self.out_path(e) in self.blacklist:
                 continue
@@ -246,10 +249,12 @@ class MultiEventInversion():
             ready = inversion.prepare(self.reader, e)
             if ready:
                 i += 1
-                if i>=num_inversions:
-                    break
                 self.inversions.append(inversion)
+                if i>=num_inversions:
+                    logger.info('reached max number of wanted inversion %s'%num_inversions)
+                    break
             else:
+                logger.info('not preparing %s'%inversion)
                 continue
 
     def run_all(self, ncpus=1, log_level=logging.DEBUG, do_log=False, do_align=False):
@@ -278,7 +283,6 @@ class MultiEventInversion():
             for iarg, arg in enumerate(args):
                 tasks.put(arg)
             
-            print 'DONE putting args'
             for p in processes:
                 p.join()
                 p.terminate()
@@ -393,3 +397,6 @@ class Inversion(Process):
         fn = pjoin(self.base_path, 'rapid.inp')
         with open(fn, 'w') as f:
             f.write(self.config.make_rapidinv_input())
+
+    def __str__(self):
+        return "id %s, %s"%(self.inversion_id, self.config.base_path)
