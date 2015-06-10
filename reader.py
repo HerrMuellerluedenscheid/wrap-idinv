@@ -8,6 +8,7 @@ from collections import defaultdict
 import logging
 import numpy as num
 
+logger = logging.getLogger('wrapidinv')
 
 def load_station_corrections(fn, combine_channels=True):
     """
@@ -59,6 +60,7 @@ class Reader:
             self._data_paths = pjoin(self._base_path, data)
         self._event_sorting = event_sorting
 
+        self.log()
     def start(self):
         self.events = model.load_events(self._meta_events)
         for i in range(len(self.events)):
@@ -113,11 +115,11 @@ class Reader:
                 self._phases[event_identifier].append(p)
                 i_assigned += 1
             except KeyError:
-                logging.debug('could not set event for phase %s'%p)
+                logger.debug('could not set event for phase %s'%p)
                 i_unassigned += 1
                 pass
 
-        logging.info('unassigned/assigned: %s/%s '%(i_unassigned, i_assigned))
+        logger.info('unassigned/assigned: %s/%s '%(i_unassigned, i_assigned))
 
     def get_waveforms(self, event, timespan=20., reset_time=False, left_shift=None):
         '''request waveforms and equilibrate sampling rates if needed
@@ -153,4 +155,7 @@ class Reader:
 
     def get_phases_of_event(self, event):
         return self._phases[event.time]
-
+    
+    def log(self):
+        for k,v in self.__dict__.iteritems():
+            logger.info("%s: %s" % (k,v))
