@@ -5,11 +5,12 @@ import sys
 from reader import Reader, load_station_corrections
 from rapidizer import RapidinvConfig, MultiEventInversion
 from pyrocko.trace import CosFader
-
+from wrapid_logging import setup_logger
 
 pjoin = os.path.join
-logging.basicConfig(filename=None, level=logging.WARNING)
-
+#logging.basicConfig(filename=None, level=logging.WARNING)
+logger = setup_logger('wrapidinv', 'base_logging.dat')
+rapidinv_logger = setup_logger('rapidinv', None)
 """
 VAC.SHN sollte nicht geblacklisted werden
 SKC Z soll geblacklisted werden
@@ -19,7 +20,7 @@ VAC SHE und SKC SHE sind geflipped
 """
 if __name__ == '__main__':
     
-    logging.info("start-logging")
+    logger.info("start-logging")
     webnet = os.environ['WEBNET']
     traces_blacklist = [('', 'STC', '', 'SHZ'),
                         ('', 'STC', '', 'SHE'),
@@ -53,7 +54,8 @@ if __name__ == '__main__':
                #phases='/data/webnet/meta/phase_markers2008_reassociated_all.pf',
                phases=None,
                event_sorting=lambda x: x.magnitude,
-               flip_polarities=[('','VAC','','SHE'), ('', 'SKC','','SHE')],
+               flip_polarities=[('','VAC','','SHE'),
+                                ('', 'SKC','','SHE')],
                traces_blacklist=traces_blacklist,
                taper=taper,
                gain=gain, 
@@ -64,7 +66,8 @@ if __name__ == '__main__':
     #test_depths = {'dz': 0.4, 'zstart':0.0, 'zstop': 1.2}
     test_depths = None
     config = RapidinvConfig(base_path=pjoin(webnet,
-                        'new/corrections_zno_tdom_STCZHCPOCblack'),
+                        #'new/corrections_zno_tdom_STCZHCPOCblack_8Hz'),
+                        'logtest'),
                             fn_defaults='rapidinv.local',
                             fn_stations=pjoin(webnet, 'meta/stations.pf'),
                             reset_time=True,
@@ -79,9 +82,9 @@ if __name__ == '__main__':
                                     blacklist=blacklist,
                                     left_shift=0.40)
     inversion.prepare(force=True,
-                      num_inversions=400, 
-                      try_set_sdr=False)
+                      num_inversions=10, 
+                      try_set_sdr=True)
 
     inversion.run_all(32, do_log=True, do_align=False)
     #inversion.run_all(1, do_log=True, do_align=False)
-    logging.info('finished')
+    logger.info('finished')
