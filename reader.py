@@ -41,7 +41,7 @@ def load_station_corrections(fn, combine_channels=True):
 class Reader:
     def __init__(self, basepath, data, events, phases, need_traces=None, event_sorting=None,
                  traces_blacklist=None, flip_polarities=None, 
-                 taper=None, gain=None, station_corrections=None):
+                 taper=None, gain=None, station_corrections=None, filter=None, exclude=None):
         self._need_traces = need_traces or 0
         self._station_corrections = station_corrections or {}
         self._gain = gain or {}
@@ -50,6 +50,8 @@ class Reader:
         self._traces_blacklist = traces_blacklist or []
         self._base_path=basepath
         self._meta_events = pjoin(self._base_path, events)
+        self._filter = filter
+        self._exclude = exclude or {}
         if phases:
             self._meta_phases = pjoin(self._base_path, phases)
         else:
@@ -61,8 +63,11 @@ class Reader:
         self._event_sorting = event_sorting
 
         self.log()
+
     def start(self):
         self.events = model.load_events(self._meta_events)
+        if self._filter:
+            self.events = filter(self._filter, self.events)
         for i in range(len(self.events)):
             e = self.events[i]
             if e.magnitude is None and e.moment_tensor is not None:
@@ -145,6 +150,11 @@ class Reader:
                 
                 if tr.nslc_id[:3] in self._station_corrections.keys():
                     tr.shift(self._station_corrections[tr.nslc_id[:3]])
+                if tr.nslc_id in self._exclude.keys():
+                    tmin, tmax = self._exclude[tr.nslc_id]
+                    if event.time >= tmin and event.time<=tmax:
+                        continue 
+
 
                 if self._taper:
                     tr.taper(self._taper)
