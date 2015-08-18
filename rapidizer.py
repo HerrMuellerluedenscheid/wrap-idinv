@@ -3,9 +3,8 @@ import os
 import shutil
 import logging
 import copy
-from threading import Thread
-import threading
-import signal
+import numpy as num
+from scipy.interpolate import InterpolatedUnivariateSpline
 from collections import OrderedDict
 from multiprocessing import Process, Pool, Queue, JoinableQueue
 from pyrocko.util import time_to_str
@@ -68,7 +67,7 @@ class StationConfigurator():
     def make_rapidinv_stations_string(self, traces, event, gfdb):
         stats = set([stat for tr in traces for stat in self.stations if
                  util.match_nslc('%s.%s.%s.*'%stat.nsl(), tr.nslc_id )])
-        
+
         file_str = ''
         oob = []
         num_s = 0
@@ -82,6 +81,36 @@ class StationConfigurator():
             file_str +='%s   %s\n'%(s.lat, s.lon)
         return num_s, oob, file_str
 
+class FancyFilter():
+    def __init__(self, step1, step2=None, step3=None):
+        self.defaults = {}
+        if not step2:
+            step2 = step1
+
+        if not step3:
+            step3 = step2
+        
+        self.defaults['STEP1'] = step1
+        self.defaults['STEP2'] = step2
+        self.defaults['STEP3'] = step3
+        
+        self.interp = {}
+        self.interpolate()
+
+    def set_filter(self, config, e):
+        ''' set filter based on scalar moment. '''
+        #mag = pyrocko.moment_tensor.moment_to_magnitude(config['SCAL_MOM_1']+(config['SCAL_MOM_2']-config['SCAL_MOM_1'])/2.)
+        mag = e.moment_tensor.magnitude if e.moment_tensor else e.magnitude
+        for k, interp in self.interp.items():
+            config.parameters[k] = interp(mag)
+
+    def interpolate(self):
+        for step, settings in self.defaults.items(): 
+            mags = [e[0] for e in settings]
+            fcs = num.array([e[1] for e in settings])
+            for i in range(4):
+                self.interp['BP_F%i_%s' % (i+1, step)] = InterpolatedUnivariateSpline(mags, fcs.T[i], k=2)
+
 class RapidinvConfig():
     def __init__(self,
                  base_path,
@@ -89,6 +118,7 @@ class RapidinvConfig():
                  fn_defaults='rapidinv.defaults',
                  reset_time=False,
                  test_depths=None,
+                 filter=None,
                  **kwargs):
         self.test_depths = test_depths
         #self.engine = kwargs['engine']
@@ -98,6 +128,7 @@ class RapidinvConfig():
         self.fn_defaults = fn_defaults
         self.parameters = self.load_defaults()
         self.reset_time = reset_time
+        self.filter = filter
         self.parameters.update(**kwargs)
 
     def load_defaults(self):
@@ -162,6 +193,10 @@ class RapidinvConfig():
             else:
                 string+='{0:25s} {1:s}\n'.format(k, v)
         return string
+
+    def set_filter(self, event):
+        self.filter.set_filter(self, event)
+        
 
 def worker(tasks, num_tasks):
     i = 0
@@ -241,6 +276,7 @@ class MultiEventInversion():
             local_config['DEPTH_UPPERLIM'], local_config['DEPTH_BOTTOMLIM'], local_config['EPIC_DIST_MIN'], local_config['EPIC_DIST_MAX'] = self.gfdb.get_limits(in_km=True)
             local_config['EPIC_DIST_MAXLOC'] = local_config['EPIC_DIST_MAX']
             local_config['EPIC_DIST_MAXKIN'] = local_config['EPIC_DIST_MAX']
+            local_config.set_filter(e)
             inversion = Inversion(parent=self, 
                                   config=local_config,
                                   inversion_id=i, 
